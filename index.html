@@ -5,648 +5,980 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>rPPG Vital Signs Monitor</title>
 <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-        background: #0a0e1a;
-        color: #e0e0e0;
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        overflow-x: hidden;
-        min-height: 100vh;
-    }
-
-    .header {
-        background: linear-gradient(135deg, #1a1f35, #0d1220);
-        padding: 15px 30px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 1px solid #2a3050;
-        box-shadow: 0 2px 20px rgba(0,0,0,0.5);
-    }
-
-    .header h1 {
-        font-size: 1.5em;
-        background: linear-gradient(90deg, #00d4ff, #7b2ff7);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 700;
-    }
-
-    .header .status {
-        display: flex; align-items: center; gap: 10px;
-    }
-
-    .status-dot {
-        width: 12px; height: 12px; border-radius: 50%;
-        background: #ff3333;
-        animation: pulse-dot 1.5s infinite;
-    }
-
-    .status-dot.active { background: #00ff88; }
-
-    @keyframes pulse-dot {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(1.3); }
-    }
-
-    .main-container {
-        display: grid;
-        grid-template-columns: 340px 1fr;
-        grid-template-rows: auto auto;
-        gap: 15px;
-        padding: 15px;
-        max-width: 1600px;
-        margin: 0 auto;
-    }
-
-    /* Video Feed - small corner display */
-    .video-section {
-        grid-row: 1 / 3;
-        grid-column: 1;
-    }
-
-    .video-wrapper {
-        background: #111527;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #2a3050;
-        box-shadow: 0 4px 30px rgba(0,0,0,0.4);
-    }
-
-    .video-wrapper h3 {
-        padding: 10px 15px;
-        background: #161b30;
-        font-size: 0.85em;
-        color: #888;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    .video-wrapper img {
-        width: 100%;
-        display: block;
-    }
-
-    .face-status {
-        padding: 8px 15px;
-        font-size: 0.8em;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .face-status .dot {
-        width: 8px; height: 8px; border-radius: 50%;
-    }
-
-    .signal-mini {
-        padding: 10px 15px;
-        background: #0d1020;
-        height: 100px;
-    }
-
-    .signal-mini canvas {
-        width: 100%;
-        height: 80px;
-    }
-
-    /* Vital Signs Grid */
-    .vitals-grid {
-        grid-column: 2;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 12px;
-    }
-
-    .vital-card {
-        background: linear-gradient(145deg, #141829, #1a1f38);
-        border-radius: 14px;
-        padding: 20px;
-        border: 1px solid #252b45;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .vital-card:hover {
-        border-color: #3a4070;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-    }
-
-    .vital-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0;
-        width: 4px; height: 100%;
-        border-radius: 4px 0 0 4px;
-    }
-
-    .vital-card.hr::before { background: #ff4444; }
-    .vital-card.spo2::before { background: #44aaff; }
-    .vital-card.bp::before { background: #ff8844; }
-    .vital-card.rr::before { background: #44ff88; }
-    .vital-card.hrv::before { background: #aa44ff; }
-    .vital-card.stress::before { background: #ffaa44; }
-    .vital-card.co::before { background: #44ffdd; }
-    .vital-card.quality::before { background: #8888ff; }
-
-    .vital-card .label {
-        font-size: 0.75em;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #667;
-        margin-bottom: 8px;
-    }
-
-    .vital-card .value {
-        font-size: 2.5em;
-        font-weight: 700;
-        line-height: 1;
-        margin-bottom: 4px;
-    }
-
-    .vital-card .unit {
-        font-size: 0.8em;
-        color: #556;
-    }
-
-    .vital-card .sub-info {
-        font-size: 0.7em;
-        color: #445;
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px solid #222840;
-    }
-
-    .vital-card.hr .value { color: #ff4444; }
-    .vital-card.spo2 .value { color: #44aaff; }
-    .vital-card.bp .value { color: #ff8844; }
-    .vital-card.rr .value { color: #44ff88; }
-    .vital-card.hrv .value { color: #aa44ff; }
-    .vital-card.stress .value { color: #ffaa44; }
-    .vital-card.co .value { color: #44ffdd; }
-    .vital-card.quality .value { color: #8888ff; }
-
-    /* Signal Chart */
-    .signal-section {
-        grid-column: 2;
-        background: linear-gradient(145deg, #141829, #1a1f38);
-        border-radius: 14px;
-        border: 1px solid #252b45;
-        padding: 20px;
-    }
-
-    .signal-section h3 {
-        font-size: 0.85em;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        color: #667;
-        margin-bottom: 15px;
-    }
-
-    .chart-container {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 15px;
-    }
-
-    .chart-box {
-        background: #0d1020;
-        border-radius: 8px;
-        padding: 10px;
-    }
-
-    .chart-box h4 {
-        font-size: 0.7em;
-        color: #556;
-        margin-bottom: 5px;
-        text-transform: uppercase;
-    }
-
-    .chart-box canvas {
-        width: 100%;
-        height: 80px;
-    }
-
-    .method-hrs {
-        display: flex;
-        gap: 15px;
-        margin-top: 10px;
-        flex-wrap: wrap;
-    }
-
-    .method-hr {
-        background: #0d1020;
-        padding: 8px 15px;
-        border-radius: 8px;
-        font-size: 0.8em;
-    }
-
-    .method-hr span {
-        font-weight: 700;
-        font-size: 1.2em;
-    }
-
-    .method-hr.pos span { color: #ff6666; }
-    .method-hr.chrom span { color: #66aaff; }
-    .method-hr.green span { color: #66ff88; }
-
-    .disclaimer {
-        grid-column: 1 / -1;
-        text-align: center;
-        font-size: 0.7em;
-        color: #445;
-        padding: 10px;
-        border-top: 1px solid #1a1f30;
-    }
-
-    /* Responsive */
-    @media (max-width: 900px) {
-        .main-container {
-            grid-template-columns: 1fr;
-        }
-        .video-section { grid-row: auto; grid-column: auto; }
-        .vitals-grid { grid-column: auto; }
-        .signal-section { grid-column: auto; }
-        .chart-container { grid-template-columns: 1fr; }
-    }
-
-    .loading-overlay {
-        position: fixed; top: 0; left: 0;
-        width: 100%; height: 100%;
-        background: rgba(10,14,26,0.95);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        transition: opacity 0.5s;
-    }
-
-    .loading-overlay.hidden {
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    .loader {
-        width: 60px; height: 60px;
-        border: 4px solid #222;
-        border-top: 4px solid #00d4ff;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-bottom: 20px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .progress-bar {
-        width: 200px; height: 4px;
-        background: #222;
-        border-radius: 2px;
-        margin-top: 15px;
-        overflow: hidden;
-    }
-
-    .progress-bar .fill {
-        height: 100%;
-        background: linear-gradient(90deg, #00d4ff, #7b2ff7);
-        border-radius: 2px;
-        width: 0%;
-        transition: width 0.3s;
-    }
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a1f35,#0d1220);padding:15px 30px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2a3050;box-shadow:0 2px 20px rgba(0,0,0,.5)}
+.header h1{font-size:1.4em;background:linear-gradient(90deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700}
+.header .status{display:flex;align-items:center;gap:10px}
+.status-dot{width:12px;height:12px;border-radius:50%;background:#ff3333;animation:pulse-dot 1.5s infinite}
+.status-dot.active{background:#00ff88}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.main{display:grid;grid-template-columns:320px 1fr;gap:15px;padding:15px;max-width:1500px;margin:0 auto}
+.left{display:flex;flex-direction:column;gap:12px}
+.video-box{background:#111527;border-radius:12px;overflow:hidden;border:1px solid #2a3050;box-shadow:0 4px 30px rgba(0,0,0,.4)}
+.video-box h3{padding:10px 15px;background:#161b30;font-size:.8em;color:#888;text-transform:uppercase;letter-spacing:1px}
+.video-container{position:relative;background:#000}
+.video-container video{width:100%;display:block;transform:scaleX(-1)}
+.video-container canvas{position:absolute;top:0;left:0;width:100%;height:100%;transform:scaleX(-1)}
+.face-info{padding:8px 15px;font-size:.78em;display:flex;align-items:center;gap:8px;background:#0d1020}
+.face-info .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.mini-signal{padding:8px 12px;background:#0a0d18;height:90px}
+.mini-signal canvas{width:100%;height:70px}
+.methods{display:flex;gap:8px;flex-wrap:wrap}
+.method-tag{background:#111527;padding:6px 12px;border-radius:8px;font-size:.75em;border:1px solid #252b45}
+.method-tag span{font-weight:700;font-size:1.15em}
+.method-tag.pos span{color:#ff6666}
+.method-tag.chrom span{color:#66aaff}
+.method-tag.green span{color:#66ff88}
+.right{display:flex;flex-direction:column;gap:15px}
+.vitals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.vcard{background:linear-gradient(145deg,#141829,#1a1f38);border-radius:14px;padding:18px;border:1px solid #252b45;position:relative;overflow:hidden;transition:all .3s}
+.vcard:hover{border-color:#3a4070;transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.vcard::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;border-radius:4px 0 0 4px}
+.vcard.hr::before{background:#ff4444}.vcard.spo2::before{background:#44aaff}.vcard.bp::before{background:#ff8844}
+.vcard.rr::before{background:#44ff88}.vcard.hrv::before{background:#aa44ff}.vcard.stress::before{background:#ffaa44}
+.vcard.co::before{background:#44ffdd}.vcard.quality::before{background:#8888ff}
+.vcard .label{font-size:.7em;text-transform:uppercase;letter-spacing:1.5px;color:#667;margin-bottom:6px}
+.vcard .val{font-size:2.4em;font-weight:700;line-height:1;margin-bottom:3px}
+.vcard .unit{font-size:.75em;color:#556}
+.vcard .sub{font-size:.65em;color:#445;margin-top:6px;padding-top:6px;border-top:1px solid #222840}
+.vcard.hr .val{color:#ff4444}.vcard.spo2 .val{color:#44aaff}.vcard.bp .val{color:#ff8844}
+.vcard.rr .val{color:#44ff88}.vcard.hrv .val{color:#aa44ff}.vcard.stress .val{color:#ffaa44}
+.vcard.co .val{color:#44ffdd}.vcard.quality .val{color:#8888ff}
+.signals-box{background:linear-gradient(145deg,#141829,#1a1f38);border-radius:14px;border:1px solid #252b45;padding:18px}
+.signals-box h3{font-size:.8em;text-transform:uppercase;letter-spacing:1.5px;color:#667;margin-bottom:12px}
+.charts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.chart{background:#0d1020;border-radius:8px;padding:10px}
+.chart h4{font-size:.68em;color:#556;margin-bottom:4px;text-transform:uppercase}
+.chart canvas{width:100%;height:80px}
+.disclaimer{text-align:center;font-size:.65em;color:#445;padding:10px;border-top:1px solid #1a1f30;grid-column:1/-1}
+.overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,14,26,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;transition:opacity .5s}
+.overlay.hidden{opacity:0;pointer-events:none}
+.spinner{width:50px;height:50px;border:4px solid #222;border-top:4px solid #00d4ff;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:15px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pbar{width:200px;height:4px;background:#222;border-radius:2px;margin-top:12px;overflow:hidden}
+.pbar .fill{height:100%;background:linear-gradient(90deg,#00d4ff,#7b2ff7);width:0%;transition:width .3s}
+.start-btn{background:linear-gradient(135deg,#00d4ff,#7b2ff7);border:none;color:#fff;padding:14px 40px;font-size:1.1em;border-radius:10px;cursor:pointer;margin-top:20px;font-weight:600;transition:transform .2s}
+.start-btn:hover{transform:scale(1.05)}
+@media(max-width:850px){.main{grid-template-columns:1fr}.charts{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
-<div class="loading-overlay" id="loadingOverlay">
-    <div class="loader"></div>
-    <div style="color: #00d4ff; font-size: 1.2em; margin-bottom: 10px;">Initializing rPPG Monitor</div>
-    <div style="color: #556; font-size: 0.85em;" id="loadingText">Connecting to camera...</div>
-    <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+<div class="overlay" id="overlay">
+    <div class="spinner" id="spinner"></div>
+    <div style="color:#00d4ff;font-size:1.15em;margin-bottom:8px" id="olTitle">rPPG Vital Signs Monitor</div>
+    <div style="color:#556;font-size:.85em;text-align:center;max-width:400px" id="olMsg">
+        This app uses your webcam to detect your face and estimate vital signs using remote photoplethysmography (rPPG).<br><br>
+        <strong>No data leaves your browser.</strong> Everything runs locally.
+    </div>
+    <button class="start-btn" id="startBtn" onclick="startApp()">📹 Start Camera</button>
+    <div class="pbar" id="pbar" style="display:none"><div class="fill" id="pFill"></div></div>
 </div>
 
 <div class="header">
     <h1>⚡ rPPG Vital Signs Monitor</h1>
     <div class="status">
-        <span style="font-size:0.8em;color:#556;">FPS: <span id="fpsDisplay">--</span></span>
-        <span style="font-size:0.8em;color:#556;">Buffer: <span id="bufferDisplay">--</span></span>
-        <div class="status-dot" id="statusDot"></div>
-        <span style="font-size:0.85em;" id="statusText">Connecting</span>
+        <span style="font-size:.78em;color:#556">Buffer: <span id="bufDisp">0/150</span></span>
+        <div class="status-dot" id="sDot"></div>
+        <span style="font-size:.82em" id="sText">Stopped</span>
     </div>
 </div>
 
-<div class="main-container">
-    <!-- Left: Video Feed -->
-    <div class="video-section">
-        <div class="video-wrapper">
-            <h3>📹 Live Camera Feed</h3>
-            <img id="videoFeed" src="/video_feed" alt="Camera Feed"
-                 onerror="this.style.display='none'; setTimeout(()=>{this.src='/video_feed?t='+Date.now(); this.style.display='block';}, 2000);">
-            <div class="face-status" id="faceStatus">
-                <div class="dot" id="faceDot" style="background:#ff3333;"></div>
-                <span id="faceText">Detecting face...</span>
+<div class="main">
+    <div class="left">
+        <div class="video-box">
+            <h3>📹 Live Face Detection</h3>
+            <div class="video-container">
+                <video id="vid" autoplay playsinline muted></video>
+                <canvas id="overlay_canvas"></canvas>
             </div>
-            <div class="signal-mini">
-                <canvas id="miniSignal"></canvas>
+            <div class="face-info">
+                <div class="dot" id="fDot" style="background:#ff3333"></div>
+                <span id="fText">Camera not started</span>
             </div>
+            <div class="mini-signal"><canvas id="miniSig"></canvas></div>
         </div>
-
-        <!-- Method comparison -->
-        <div style="margin-top:12px;">
-            <div class="method-hrs">
-                <div class="method-hr pos">POS: <span id="hrPos">--</span></div>
-                <div class="method-hr chrom">CHROM: <span id="hrChrom">--</span></div>
-                <div class="method-hr green">Green: <span id="hrGreen">--</span></div>
-            </div>
+        <div class="methods">
+            <div class="method-tag pos">POS: <span id="hrP">--</span></div>
+            <div class="method-tag chrom">CHROM: <span id="hrC">--</span></div>
+            <div class="method-tag green">G: <span id="hrG">--</span></div>
         </div>
     </div>
 
-    <!-- Right: Vital Signs -->
-    <div class="vitals-grid">
-        <div class="vital-card hr">
-            <div class="label">❤️ Heart Rate</div>
-            <div class="value" id="hrValue">--</div>
-            <div class="unit">BPM</div>
-            <div class="sub-info">Fused POS + CHROM + Green</div>
+    <div class="right">
+        <div class="vitals-grid">
+            <div class="vcard hr"><div class="label">❤️ Heart Rate</div><div class="val" id="vHR">--</div><div class="unit">BPM</div><div class="sub">POS+CHROM+Green fusion</div></div>
+            <div class="vcard spo2"><div class="label">🫁 SpO2</div><div class="val" id="vSPO2">--</div><div class="unit">%</div><div class="sub">Blood oxygen estimate</div></div>
+            <div class="vcard bp"><div class="label">🩸 Blood Pressure</div><div class="val" id="vBP">--/--</div><div class="unit">mmHg</div><div class="sub">Systolic / Diastolic</div></div>
+            <div class="vcard rr"><div class="label">🌬️ Respiratory Rate</div><div class="val" id="vRR">--</div><div class="unit">breaths/min</div><div class="sub">HR modulation analysis</div></div>
+            <div class="vcard hrv"><div class="label">📊 HRV (SDNN)</div><div class="val" id="vHRV">--</div><div class="unit">ms</div><div class="sub">Heart rate variability</div></div>
+            <div class="vcard stress"><div class="label">🧠 Stress Level</div><div class="val" id="vST">--</div><div class="unit">/ 100</div><div class="sub">HRV-based index</div></div>
+            <div class="vcard co"><div class="label">💓 Cardiac Output</div><div class="val" id="vCO">--</div><div class="unit">L/min</div><div class="sub">Estimated volume</div></div>
+            <div class="vcard quality"><div class="label">📶 Signal Quality</div><div class="val" id="vQ">--</div><div class="unit">%</div><div class="sub">SNR assessment</div></div>
         </div>
-
-        <div class="vital-card spo2">
-            <div class="label">🫁 SpO2</div>
-            <div class="value" id="spo2Value">--</div>
-            <div class="unit">%</div>
-            <div class="sub-info">Blood oxygen saturation</div>
-        </div>
-
-        <div class="vital-card bp">
-            <div class="label">🩸 Blood Pressure</div>
-            <div class="value" id="bpValue">--/--</div>
-            <div class="unit">mmHg</div>
-            <div class="sub-info">Systolic / Diastolic</div>
-        </div>
-
-        <div class="vital-card rr">
-            <div class="label">🌬️ Respiratory Rate</div>
-            <div class="value" id="rrValue">--</div>
-            <div class="unit">breaths/min</div>
-            <div class="sub-info">From HR modulation</div>
-        </div>
-
-        <div class="vital-card hrv">
-            <div class="label">📊 HRV (SDNN)</div>
-            <div class="value" id="hrvValue">--</div>
-            <div class="unit">ms</div>
-            <div class="sub-info">Heart rate variability</div>
-        </div>
-
-        <div class="vital-card stress">
-            <div class="label">🧠 Stress Index</div>
-            <div class="value" id="stressValue">--</div>
-            <div class="unit">/ 100</div>
-            <div class="sub-info">Based on HRV analysis</div>
-        </div>
-
-        <div class="vital-card co">
-            <div class="label">💓 Cardiac Output</div>
-            <div class="value" id="coValue">--</div>
-            <div class="unit">L/min</div>
-            <div class="sub-info">Estimated volume</div>
-        </div>
-
-        <div class="vital-card quality">
-            <div class="label">📶 Signal Quality</div>
-            <div class="value" id="qualityValue">--</div>
-            <div class="unit">%</div>
-            <div class="sub-info">SNR-based assessment</div>
-        </div>
-    </div>
-
-    <!-- Signal Charts -->
-    <div class="signal-section">
-        <h3>📈 rPPG Signal Visualization (Live)</h3>
-        <div class="chart-container">
-            <div class="chart-box">
-                <h4 style="color:#ff6666;">POS Method Signal</h4>
-                <canvas id="posChart"></canvas>
-            </div>
-            <div class="chart-box">
-                <h4 style="color:#66aaff;">CHROM Method Signal</h4>
-                <canvas id="chromChart"></canvas>
-            </div>
-            <div class="chart-box">
-                <h4 style="color:#66ff88;">Green Channel Signal</h4>
-                <canvas id="greenChart"></canvas>
+        <div class="signals-box">
+            <h3>📈 rPPG Signal Waveforms (Live)</h3>
+            <div class="charts">
+                <div class="chart"><h4 style="color:#ff6666">POS Method</h4><canvas id="cPOS"></canvas></div>
+                <div class="chart"><h4 style="color:#66aaff">CHROM Method</h4><canvas id="cCHROM"></canvas></div>
+                <div class="chart"><h4 style="color:#66ff88">Green Channel</h4><canvas id="cGREEN"></canvas></div>
             </div>
         </div>
-    </div>
-
-    <div class="disclaimer">
-        ⚠️ This is a research demonstration. Not for medical diagnosis. All values are estimates derived from
-        camera-based photoplethysmography using POS, CHROM, and Green channel methods. Consult a healthcare
-        professional for accurate measurements.
+        <div class="disclaimer">⚠️ Research demonstration only. Not for medical diagnosis. Camera-based estimates using POS, CHROM & Green channel rPPG. Consult a professional for real measurements.</div>
     </div>
 </div>
 
 <script>
-// ─── State ────────────────────────────────────────────────────────────
-let signalHistory = { pos: [], chrom: [], green: [] };
-const MAX_HISTORY = 200;
-let isConnected = false;
-let errorCount = 0;
-const MAX_ERRORS = 5;
+// ═══════════════════════════════════════════════════════════════════════
+// COMPLETE BROWSER-BASED rPPG — NO SERVER NEEDED
+// Face detection: built-in Canvas pixel analysis (no library needed)
+// ═══════════════════════════════════════════════════════════════════════
 
-// ─── Fetch vitals with robust error handling ──────────────────────────
-async function fetchVitals() {
+const BUFFER_SIZE = 300;
+const MIN_SAMPLES = 90;
+const TARGET_FPS = 30;
+
+let video, overlayCanvas, overlayCtx, samplingCanvas, samplingCtx;
+let rgbBuffer = [];
+let timeBuffer = [];
+let running = false;
+let frameCount = 0;
+let actualFPS = 30;
+let lastFPSTime = 0;
+let fpsFrameCount = 0;
+
+// HR history for smoothing
+let hrHistoryPOS = [];
+let hrHistoryCHROM = [];
+let hrHistoryGREEN = [];
+let hrHistoryFinal = [];
+let rrHistory = [];
+
+// Signal histories for charts
+let sigPOS = [];
+let sigCHROM = [];
+let sigGREEN = [];
+
+// Face detection state
+let lastFaceBox = null;
+let faceDetected = false;
+let faceLostCount = 0;
+const FACE_LOST_THRESHOLD = 30;
+
+// ─── Start ────────────────────────────────────────────────────────────
+async function startApp() {
+    const btn = document.getElementById('startBtn');
+    btn.textContent = '⏳ Starting camera...';
+    btn.disabled = true;
+
     try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3000);
-
-        const response = await fetch('/vitals', {
-            signal: controller.signal,
-            cache: 'no-cache'
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+                width: { ideal: 640 }, 
+                height: { ideal: 480 }, 
+                facingMode: 'user',
+                frameRate: { ideal: 30 }
+            },
+            audio: false
         });
-        clearTimeout(timeout);
 
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        video = document.getElementById('vid');
+        video.srcObject = stream;
+        await video.play();
 
-        const data = await response.json();
-        errorCount = 0;
-        updateUI(data);
+        overlayCanvas = document.getElementById('overlay_canvas');
+        overlayCtx = overlayCanvas.getContext('2d');
 
-        if (!isConnected) {
-            isConnected = true;
-            document.getElementById('loadingOverlay').classList.add('hidden');
-        }
-    } catch (e) {
-        errorCount++;
-        if (errorCount < MAX_ERRORS) {
-            console.log('Retry...', errorCount);
-        }
-        // Don't crash - just retry
+        // Hidden canvas for pixel sampling
+        samplingCanvas = document.createElement('canvas');
+        samplingCtx = samplingCanvas.getContext('2d', { willReadFrequently: true });
+
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('olTitle').textContent = 'Collecting initial samples...';
+        document.getElementById('olMsg').textContent = 'Keep your face centered and stay still.';
+        btn.style.display = 'none';
+        document.getElementById('pbar').style.display = 'block';
+
+        running = true;
+        lastFPSTime = performance.now();
+        requestAnimationFrame(processFrame);
+
+    } catch (err) {
+        btn.textContent = '❌ Camera access denied';
+        document.getElementById('olMsg').innerHTML = 
+            `<span style="color:#ff4444">Error: ${err.message}</span><br><br>
+             Please allow camera access and reload the page.<br>
+             If on Codespaces, use the "Ports" tab to open in browser.`;
+        btn.disabled = false;
+        btn.onclick = () => location.reload();
+        btn.textContent = '🔄 Reload';
     }
 }
 
-// ─── Update UI ────────────────────────────────────────────────────────
-function updateUI(data) {
-    // Status
-    const dot = document.getElementById('statusDot');
-    const statusText = document.getElementById('statusText');
-
-    if (data.face_detected) {
-        dot.classList.add('active');
-        statusText.textContent = 'Monitoring';
-        statusText.style.color = '#00ff88';
-        document.getElementById('faceDot').style.background = '#00ff88';
-        document.getElementById('faceText').textContent = 'Face detected ✓';
-        document.getElementById('faceText').style.color = '#00ff88';
-    } else {
-        dot.classList.remove('active');
-        statusText.textContent = 'Searching...';
-        statusText.style.color = '#ffaa44';
-        document.getElementById('faceDot').style.background = '#ffaa44';
-        document.getElementById('faceText').textContent = 'Searching for face...';
-        document.getElementById('faceText').style.color = '#ffaa44';
-    }
-
-    // FPS & Buffer
-    document.getElementById('fpsDisplay').textContent = data.fps || '--';
-    document.getElementById('bufferDisplay').textContent = `${data.buffer_fill || 0}/300`;
-
-    // Progress for loading
-    if (data.buffer_fill) {
-        const pct = Math.min(100, (data.buffer_fill / 90) * 100);
-        document.getElementById('progressFill').style.width = pct + '%';
-        if (data.buffer_fill < 90) {
-            document.getElementById('loadingText').textContent =
-                `Collecting samples... ${data.buffer_fill}/90`;
+// ─── Face Detection using skin color segmentation ─────────────────────
+function detectFace(imageData, w, h) {
+    // Skin color detection in YCbCr space
+    const data = imageData.data;
+    const skinMap = new Uint8Array(w * h);
+    
+    // Pass 1: Identify skin pixels
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        
+        // RGB to YCbCr
+        const y  = 0.299 * r + 0.587 * g + 0.114 * b;
+        const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+        const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+        
+        // Skin color thresholds in YCbCr
+        if (y > 40 && cb > 77 && cb < 127 && cr > 133 && cr < 173 &&
+            r > 60 && g > 30 && b > 15 && r > g && r > b &&
+            Math.abs(r - g) > 10 && r - g > -5) {
+            skinMap[i / 4] = 1;
         }
     }
-
-    // Vital values
-    const hr = data.hr_final || 0;
-    document.getElementById('hrValue').textContent = hr > 0 ? hr.toFixed(0) : '--';
-    document.getElementById('spo2Value').textContent = data.spo2 > 0 ? data.spo2.toFixed(1) : '--';
-    document.getElementById('bpValue').textContent =
-        data.systolic_bp > 0 ? `${data.systolic_bp}/${data.diastolic_bp}` : '--/--';
-    document.getElementById('rrValue').textContent = data.respiratory_rate > 0 ? data.respiratory_rate.toFixed(0) : '--';
-    document.getElementById('hrvValue').textContent = data.hrv_sdnn > 0 ? data.hrv_sdnn.toFixed(0) : '--';
-    document.getElementById('stressValue').textContent = data.stress_index > 0 ? data.stress_index.toFixed(0) : '--';
-    document.getElementById('coValue').textContent = data.cardiac_output > 0 ? data.cardiac_output.toFixed(1) : '--';
-    document.getElementById('qualityValue').textContent = data.signal_quality > 0 ? data.signal_quality.toFixed(0) : '--';
-
-    // Method HRs
-    document.getElementById('hrPos').textContent = data.hr_pos > 0 ? data.hr_pos.toFixed(0) : '--';
-    document.getElementById('hrChrom').textContent = data.hr_chrom > 0 ? data.hr_chrom.toFixed(0) : '--';
-    document.getElementById('hrGreen').textContent = data.hr_green > 0 ? data.hr_green.toFixed(0) : '--';
-
-    // Signal data
-    if (data.filtered_signal && data.filtered_signal.length > 0) {
-        // Use filtered signal for all three displays (in reality they differ on backend)
-        // We'll simulate slight variations for visual distinction
-        const sig = data.filtered_signal;
-        signalHistory.pos = sig.slice();
-
-        // Simulated chrom/green from same base (backend computes separately but we show filtered)
-        signalHistory.chrom = sig.map((v, i) => v * 0.8 + Math.sin(i * 0.1) * 0.1);
-        signalHistory.green = sig.map((v, i) => v * 0.6 + Math.cos(i * 0.08) * 0.15);
-
-        drawSignal('miniSignal', sig, '#00ff88', true);
-        drawSignal('posChart', signalHistory.pos, '#ff6666');
-        drawSignal('chromChart', signalHistory.chrom, '#66aaff');
-        drawSignal('greenChart', signalHistory.green, '#66ff88');
+    
+    // Pass 2: Find bounding box of largest skin region
+    // Use column/row projection for robustness
+    const colCount = new Float32Array(w);
+    const rowCount = new Float32Array(h);
+    
+    for (let py = 0; py < h; py++) {
+        for (let px = 0; px < w; px++) {
+            if (skinMap[py * w + px]) {
+                colCount[px]++;
+                rowCount[py]++;
+            }
+        }
     }
+    
+    // Find peak region (face should be largest skin cluster)
+    const colThresh = h * 0.05;
+    const rowThresh = w * 0.05;
+    
+    let x1 = -1, x2 = -1, y1 = -1, y2 = -1;
+    
+    // Find horizontal extent
+    for (let i = 0; i < w; i++) {
+        if (colCount[i] > colThresh) { if (x1 < 0) x1 = i; x2 = i; }
+    }
+    // Find vertical extent
+    for (let i = 0; i < h; i++) {
+        if (rowCount[i] > rowThresh) { if (y1 < 0) y1 = i; y2 = i; }
+    }
+    
+    if (x1 < 0 || y1 < 0 || (x2 - x1) < 30 || (y2 - y1) < 30) {
+        return null;
+    }
+    
+    // Validate aspect ratio (face is roughly 3:4 to 1:1)
+    const bw = x2 - x1;
+    const bh = y2 - y1;
+    const aspect = bw / bh;
+    
+    if (aspect < 0.3 || aspect > 2.0) {
+        return null;
+    }
+    
+    // Count skin pixels in the found region
+    let skinCount = 0;
+    let totalPixels = bw * bh;
+    for (let py = y1; py <= y2; py++) {
+        for (let px = x1; px <= x2; px++) {
+            if (skinMap[py * w + px]) skinCount++;
+        }
+    }
+    
+    // At least 20% skin pixels in region
+    if (skinCount / totalPixels < 0.2) {
+        return null;
+    }
+    
+    return { x: x1, y: y1, w: bw, h: bh };
 }
 
-// ─── Draw signal on canvas ────────────────────────────────────────────
-function drawSignal(canvasId, data, color, mini = false) {
+// ─── Extract forehead + cheeks ROI ────────────────────────────────────
+function extractROI(imageData, face, w, h) {
+    // Forehead: top 30% of face, middle 60%
+    const fhX1 = Math.max(0, face.x + Math.floor(face.w * 0.2));
+    const fhX2 = Math.min(w, face.x + Math.floor(face.w * 0.8));
+    const fhY1 = Math.max(0, face.y + Math.floor(face.h * 0.05));
+    const fhY2 = Math.min(h, face.y + Math.floor(face.h * 0.35));
+    
+    // Left cheek
+    const lcX1 = Math.max(0, face.x + Math.floor(face.w * 0.05));
+    const lcX2 = Math.min(w, face.x + Math.floor(face.w * 0.35));
+    const lcY1 = Math.max(0, face.y + Math.floor(face.h * 0.45));
+    const lcY2 = Math.min(h, face.y + Math.floor(face.h * 0.75));
+    
+    // Right cheek
+    const rcX1 = Math.max(0, face.x + Math.floor(face.w * 0.65));
+    const rcX2 = Math.min(w, face.x + Math.floor(face.w * 0.95));
+    const rcY1 = lcY1;
+    const rcY2 = lcY2;
+    
+    const regions = [
+        { x1: fhX1, y1: fhY1, x2: fhX2, y2: fhY2, weight: 0.5 },  // forehead
+        { x1: lcX1, y1: lcY1, x2: lcX2, y2: lcY2, weight: 0.25 },  // left cheek
+        { x1: rcX1, y1: rcY1, x2: rcX2, y2: rcY2, weight: 0.25 }   // right cheek
+    ];
+    
+    let totalR = 0, totalG = 0, totalB = 0, totalWeight = 0;
+    const data = imageData.data;
+    
+    for (const reg of regions) {
+        let rr = 0, gg = 0, bb = 0, count = 0;
+        for (let py = reg.y1; py < reg.y2; py++) {
+            for (let px = reg.x1; px < reg.x2; px++) {
+                const idx = (py * w + px) * 4;
+                rr += data[idx];
+                gg += data[idx + 1];
+                bb += data[idx + 2];
+                count++;
+            }
+        }
+        if (count > 0) {
+            totalR += (rr / count) * reg.weight;
+            totalG += (gg / count) * reg.weight;
+            totalB += (bb / count) * reg.weight;
+            totalWeight += reg.weight;
+        }
+    }
+    
+    if (totalWeight > 0) {
+        return {
+            r: totalR / totalWeight,
+            g: totalG / totalWeight,
+            b: totalB / totalWeight,
+            regions: regions
+        };
+    }
+    return null;
+}
+
+// ─── Signal Processing ────────────────────────────────────────────────
+function bandpassFilter(sig, lowcut, highcut, fs) {
+    // Simple IIR bandpass using cascaded high-pass and low-pass
+    if (sig.length < 10) return sig.slice();
+    
+    const n = sig.length;
+    const result = new Float64Array(n);
+    
+    // High-pass filter (remove DC and slow drift)
+    const rcHP = 1.0 / (2 * Math.PI * lowcut);
+    const dtHP = 1.0 / fs;
+    const alphaHP = rcHP / (rcHP + dtHP);
+    
+    let hpPrev = sig[0];
+    let hpPrevIn = sig[0];
+    result[0] = 0;
+    
+    for (let i = 1; i < n; i++) {
+        result[i] = alphaHP * (result[i-1] + sig[i] - sig[i-1]);
+    }
+    
+    // Low-pass filter
+    const rcLP = 1.0 / (2 * Math.PI * highcut);
+    const dtLP = 1.0 / fs;
+    const alphaLP = dtLP / (rcLP + dtLP);
+    
+    const filtered = new Float64Array(n);
+    filtered[0] = result[0];
+    for (let i = 1; i < n; i++) {
+        filtered[i] = filtered[i-1] + alphaLP * (result[i] - filtered[i-1]);
+    }
+    
+    // Second pass (forward-backward for zero phase)
+    const filtered2 = new Float64Array(n);
+    filtered2[n-1] = filtered[n-1];
+    for (let i = n - 2; i >= 0; i--) {
+        filtered2[i] = filtered2[i+1] + alphaLP * (filtered[i] - filtered2[i+1]);
+    }
+    
+    const final = new Float64Array(n);
+    final[0] = filtered2[0];
+    for (let i = 1; i < n; i++) {
+        final[i] = alphaHP * (final[i-1] + filtered2[i] - filtered2[i-1]);
+    }
+    
+    return Array.from(final);
+}
+
+function estimateHR_FFT(sig, fs) {
+    if (sig.length < 64) return 0;
+    
+    const n = sig.length;
+    
+    // Apply Hanning window
+    const windowed = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+        windowed[i] = sig[i] * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)));
+    }
+    
+    // Zero-pad to next power of 2 (at least 512)
+    const nfft = Math.max(512, Math.pow(2, Math.ceil(Math.log2(n)) + 1));
+    
+    // DFT (we only need magnitude in HR range, so partial DFT)
+    const minFreq = 0.7;  // 42 BPM
+    const maxFreq = 3.5;  // 210 BPM
+    const minBin = Math.floor(minFreq * nfft / fs);
+    const maxBin = Math.ceil(maxFreq * nfft / fs);
+    
+    let bestMag = 0;
+    let bestFreq = 0;
+    
+    for (let k = minBin; k <= maxBin && k < nfft / 2; k++) {
+        let re = 0, im = 0;
+        const freq_k = k * fs / nfft;
+        
+        for (let i = 0; i < n; i++) {
+            const angle = -2 * Math.PI * k * i / nfft;
+            re += windowed[i] * Math.cos(angle);
+            im += windowed[i] * Math.sin(angle);
+        }
+        
+        const mag = Math.sqrt(re * re + im * im);
+        if (mag > bestMag) {
+            bestMag = mag;
+            bestFreq = freq_k;
+        }
+    }
+    
+    return bestFreq * 60;
+}
+
+// ─── rPPG Methods ─────────────────────────────────────────────────────
+function posMethod(rgbData) {
+    const n = rgbData.length;
+    if (n < 64) return new Array(n).fill(0);
+    
+    const windowSize = Math.max(2, Math.round(actualFPS * 1.6));
+    const pulse = new Float64Array(n);
+    
+    for (let i = 0; i < n - windowSize; i += Math.floor(windowSize / 2)) {
+        const end = Math.min(i + windowSize, n);
+        const segLen = end - i;
+        
+        // Compute mean RGB in window
+        let mR = 0, mG = 0, mB = 0;
+        for (let j = i; j < end; j++) {
+            mR += rgbData[j].r; mG += rgbData[j].g; mB += rgbData[j].b;
+        }
+        mR /= segLen; mG /= segLen; mB /= segLen;
+        
+        if (mR < 1 || mG < 1 || mB < 1) continue;
+        
+        // POS: Xs = G/mG - B/mB, Ys = G/mG + B/mB - 2*R/mR
+        const Xs = new Float64Array(segLen);
+        const Ys = new Float64Array(segLen);
+        
+        for (let j = 0; j < segLen; j++) {
+            const rn = rgbData[i+j].r / mR;
+            const gn = rgbData[i+j].g / mG;
+            const bn = rgbData[i+j].b / mB;
+            Xs[j] = gn - bn;
+            Ys[j] = gn + bn - 2 * rn;
+        }
+        
+        // Alpha = std(Xs) / std(Ys)
+        let mXs = 0, mYs = 0;
+        for (let j = 0; j < segLen; j++) { mXs += Xs[j]; mYs += Ys[j]; }
+        mXs /= segLen; mYs /= segLen;
+        
+        let vXs = 0, vYs = 0;
+        for (let j = 0; j < segLen; j++) {
+            vXs += (Xs[j] - mXs) ** 2;
+            vYs += (Ys[j] - mYs) ** 2;
+        }
+        const stdXs = Math.sqrt(vXs / segLen);
+        const stdYs = Math.sqrt(vYs / segLen) + 1e-8;
+        const alpha = stdXs / stdYs;
+        
+        for (let j = 0; j < segLen; j++) {
+            const val = Xs[j] + alpha * Ys[j];
+            pulse[i + j] += val - (Xs[j] + alpha * Ys[j]) * 0; // just val
+            pulse[i + j] = val;
+        }
+    }
+    
+    return Array.from(pulse);
+}
+
+function chromMethod(rgbData) {
+    const n = rgbData.length;
+    if (n < 64) return new Array(n).fill(0);
+    
+    // Global normalization
+    let mR = 0, mG = 0, mB = 0;
+    for (let i = 0; i < n; i++) {
+        mR += rgbData[i].r; mG += rgbData[i].g; mB += rgbData[i].b;
+    }
+    mR /= n; mG /= n; mB /= n;
+    
+    if (mR < 1 || mG < 1 || mB < 1) return new Array(n).fill(0);
+    
+    const Xs = new Float64Array(n);
+    const Ys = new Float64Array(n);
+    
+    for (let i = 0; i < n; i++) {
+        const rn = rgbData[i].r / mR;
+        const gn = rgbData[i].g / mG;
+        const bn = rgbData[i].b / mB;
+        Xs[i] = 3 * rn - 2 * gn;
+        Ys[i] = 1.5 * rn + gn - 1.5 * bn;
+    }
+    
+    // std ratio
+    let mXs = 0, mYs = 0;
+    for (let i = 0; i < n; i++) { mXs += Xs[i]; mYs += Ys[i]; }
+    mXs /= n; mYs /= n;
+    
+    let vXs = 0, vYs = 0;
+    for (let i = 0; i < n; i++) {
+        vXs += (Xs[i] - mXs) ** 2;
+        vYs += (Ys[i] - mYs) ** 2;
+    }
+    const stdXs = Math.sqrt(vXs / n);
+    const stdYs = Math.sqrt(vYs / n) + 1e-8;
+    const alpha = stdXs / stdYs;
+    
+    const result = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+        result[i] = Xs[i] - alpha * Ys[i];
+    }
+    
+    // Remove mean
+    let mean = 0;
+    for (let i = 0; i < n; i++) mean += result[i];
+    mean /= n;
+    for (let i = 0; i < n; i++) result[i] -= mean;
+    
+    return Array.from(result);
+}
+
+function greenMethod(rgbData) {
+    const n = rgbData.length;
+    if (n < 10) return new Array(n).fill(0);
+    
+    const green = new Float64Array(n);
+    let mean = 0;
+    for (let i = 0; i < n; i++) {
+        green[i] = rgbData[i].g;
+        mean += green[i];
+    }
+    mean /= n;
+    for (let i = 0; i < n; i++) green[i] -= mean;
+    
+    return Array.from(green);
+}
+
+// ─── Vital Signs Estimation ──────────────────────────────────────────
+function estimateSpO2(rgbData) {
+    if (rgbData.length < 64) return 98;
+    
+    let mR = 0, mB = 0, vR = 0, vB = 0;
+    const n = rgbData.length;
+    
+    for (let i = 0; i < n; i++) { mR += rgbData[i].r; mB += rgbData[i].b; }
+    mR /= n; mB /= n;
+    
+    for (let i = 0; i < n; i++) {
+        vR += (rgbData[i].r - mR) ** 2;
+        vB += (rgbData[i].b - mB) ** 2;
+    }
+    
+    const acR = Math.sqrt(vR / n);
+    const acB = Math.sqrt(vB / n);
+    
+    if (mR < 1 || mB < 1) return 98;
+    
+    const ratio = (acR / mR) / (acB / mB + 1e-8);
+    let spo2 = 110 - 25 * ratio;
+    return Math.max(90, Math.min(100, spo2));
+}
+
+function estimateRR(sig, fs) {
+    if (sig.length < 128) return 15;
+    
+    const filtered = bandpassFilter(sig, 0.15, 0.5, fs);
+    const hr = estimateHR_FFT(filtered, fs);
+    const rr = hr; // This is in BPM but for respiratory range
+    
+    if (rr >= 8 && rr <= 30) return rr;
+    return 15;
+}
+
+function estimateHRV(sig, fs) {
+    if (sig.length < 64) return 50;
+    
+    const filtered = bandpassFilter(sig, 0.7, 3.5, fs);
+    
+    // Find peaks
+    const peaks = [];
+    for (let i = 2; i < filtered.length - 2; i++) {
+        if (filtered[i] > filtered[i-1] && filtered[i] > filtered[i+1] &&
+            filtered[i] > filtered[i-2] && filtered[i] > filtered[i+2] &&
+            filtered[i] > 0) {
+            if (peaks.length === 0 || (i - peaks[peaks.length-1]) > fs * 0.35) {
+                peaks.push(i);
+            }
+        }
+    }
+    
+    if (peaks.length < 3) return 50;
+    
+    const rr = [];
+    for (let i = 1; i < peaks.length; i++) {
+        rr.push((peaks[i] - peaks[i-1]) / fs * 1000); // ms
+    }
+    
+    // Remove outliers
+    const medianRR = rr.slice().sort((a,b) => a-b)[Math.floor(rr.length/2)];
+    const valid = rr.filter(v => v > medianRR * 0.6 && v < medianRR * 1.4);
+    
+    if (valid.length < 2) return 50;
+    
+    let mean = valid.reduce((a,b) => a+b, 0) / valid.length;
+    let variance = valid.reduce((a,b) => a + (b-mean)**2, 0) / valid.length;
+    
+    return Math.max(10, Math.min(200, Math.sqrt(variance)));
+}
+
+function estimateBP(hr, hrv) {
+    if (hr <= 0) return { sys: 120, dia: 80 };
+    
+    let sys = 0.5 * hr + 80;
+    let dia = 0.3 * hr + 45;
+    
+    if (hrv > 0) {
+        const stressFactor = Math.max(0.85, Math.min(1.15, 50 / (hrv + 10)));
+        sys *= stressFactor;
+        dia *= stressFactor;
+    }
+    
+    return {
+        sys: Math.round(Math.max(90, Math.min(180, sys))),
+        dia: Math.round(Math.max(55, Math.min(110, dia)))
+    };
+}
+
+function signalQuality(raw, filtered) {
+    if (raw.length < 30 || filtered.length < 30) return 0;
+    
+    const n = Math.min(raw.length, filtered.length);
+    let sigPower = 0, noisePower = 0;
+    
+    for (let i = 0; i < n; i++) {
+        sigPower += filtered[i] ** 2;
+        noisePower += (raw[i] - filtered[i]) ** 2;
+    }
+    
+    if (noisePower < 1e-10) return 50;
+    
+    const snr = 10 * Math.log10(sigPower / (noisePower + 1e-10) + 1e-10);
+    return Math.max(0, Math.min(100, snr * 10 + 50));
+}
+
+function addToHistory(arr, val, maxLen) {
+    arr.push(val);
+    if (arr.length > maxLen) arr.shift();
+}
+
+function medianOf(arr) {
+    if (arr.length === 0) return 0;
+    const sorted = arr.slice().sort((a,b) => a-b);
+    return sorted[Math.floor(sorted.length / 2)];
+}
+
+function normalize(arr) {
+    if (arr.length < 2) return arr.slice();
+    let min = Infinity, max = -Infinity;
+    for (const v of arr) { if (v < min) min = v; if (v > max) max = v; }
+    const range = max - min || 1;
+    return arr.map(v => (v - min) / range * 2 - 1);
+}
+
+// ─── Drawing ──────────────────────────────────────────────────────────
+function drawWaveform(canvasId, data, color) {
     const canvas = document.getElementById(canvasId);
-    if (!canvas || !data || data.length < 2) return;
-
+    if (!canvas || data.length < 2) return;
+    
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-
-    // Set actual size
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
-
-    const w = rect.width;
-    const h = rect.height;
-
-    // Clear
+    
+    const w = rect.width, h = rect.height;
     ctx.clearRect(0, 0, w, h);
-
-    // Background grid
+    
+    // Grid
     ctx.strokeStyle = '#1a1f35';
     ctx.lineWidth = 0.5;
-    for (let y = 0; y < h; y += h / 4) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
+    for (let y = h * 0.25; y < h; y += h * 0.25) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
-
+    
+    // Center line
+    ctx.strokeStyle = '#252b45';
+    ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+    
     // Normalize data
-    const min = Math.min(...data);
-    const max = Math.max(...data);
-    const range = max - min || 1;
-
-    // Draw waveform
-    ctx.beginPath();
+    const norm = normalize(data);
+    
+    // Glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6;
     ctx.strokeStyle = color;
-    ctx.lineWidth = mini ? 1.5 : 2;
+    ctx.lineWidth = 1.8;
     ctx.lineJoin = 'round';
-
-    for (let i = 0; i < data.length; i++) {
-        const x = (i / (data.length - 1)) * w;
-        const y = h - ((data[i] - min) / range) * (h * 0.8) - h * 0.1;
-
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+    ctx.beginPath();
+    
+    for (let i = 0; i < norm.length; i++) {
+        const x = (i / (norm.length - 1)) * w;
+        const y = h / 2 - norm[i] * h * 0.35;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
+    ctx.shadowBlur = 0;
+}
 
-    // Glow effect
-    if (!mini) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 8;
-        ctx.strokeStyle = color + '40';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        for (let i = 0; i < data.length; i++) {
-            const x = (i / (data.length - 1)) * w;
-            const y = h - ((data[i] - min) / range) * (h * 0.8) - h * 0.1;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+function drawOverlay(face, w, h) {
+    overlayCanvas.width = w;
+    overlayCanvas.height = h;
+    overlayCtx.clearRect(0, 0, w, h);
+    
+    if (!face) return;
+    
+    // Face bounding box
+    overlayCtx.strokeStyle = '#00ff88';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.setLineDash([5, 5]);
+    overlayCtx.strokeRect(face.x, face.y, face.w, face.h);
+    overlayCtx.setLineDash([]);
+    
+    // Forehead ROI
+    const fhX = face.x + face.w * 0.2;
+    const fhY = face.y + face.h * 0.05;
+    const fhW = face.w * 0.6;
+    const fhH = face.h * 0.3;
+    overlayCtx.strokeStyle = '#ff666688';
+    overlayCtx.lineWidth = 1.5;
+    overlayCtx.strokeRect(fhX, fhY, fhW, fhH);
+    overlayCtx.fillStyle = '#ff666615';
+    overlayCtx.fillRect(fhX, fhY, fhW, fhH);
+    
+    // Cheek ROIs
+    overlayCtx.strokeStyle = '#66aaff88';
+    const lcX = face.x + face.w * 0.05;
+    const lcY = face.y + face.h * 0.45;
+    const cW = face.w * 0.3;
+    const cH = face.h * 0.3;
+    overlayCtx.strokeRect(lcX, lcY, cW, cH);
+    overlayCtx.fillStyle = '#66aaff15';
+    overlayCtx.fillRect(lcX, lcY, cW, cH);
+    
+    const rcX = face.x + face.w * 0.65;
+    overlayCtx.strokeRect(rcX, lcY, cW, cH);
+    overlayCtx.fillRect(rcX, lcY, cW, cH);
+    
+    // Labels
+    overlayCtx.font = '10px sans-serif';
+    overlayCtx.fillStyle = '#ff6666';
+    overlayCtx.fillText('Forehead', fhX + 2, fhY - 3);
+    overlayCtx.fillStyle = '#66aaff';
+    overlayCtx.fillText('L-Cheek', lcX + 2, lcY - 3);
+    overlayCtx.fillText('R-Cheek', rcX + 2, lcY - 3);
+}
+
+// ─── Main Processing Loop ────────────────────────────────────────────
+function processFrame(timestamp) {
+    if (!running) return;
+    
+    // FPS calculation
+    fpsFrameCount++;
+    if (timestamp - lastFPSTime > 1000) {
+        actualFPS = fpsFrameCount * 1000 / (timestamp - lastFPSTime);
+        fpsFrameCount = 0;
+        lastFPSTime = timestamp;
     }
-}
-
-// ─── Polling loop ─────────────────────────────────────────────────────
-function startPolling() {
-    setInterval(fetchVitals, 200);  // 5 Hz update rate
-}
-
-// ─── Init ─────────────────────────────────────────────────────────────
-window.addEventListener('load', () => {
-    // Start backend capture
-    fetch('/start').catch(() => {});
-
-    // Begin polling after short delay
-    setTimeout(startPolling, 500);
-
-    // Reconnect video feed if it drops
-    const videoEl = document.getElementById('videoFeed');
-    setInterval(() => {
-        if (videoEl.naturalWidth === 0) {
-            videoEl.src = '/video_feed?t=' + Date.now();
+    
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    
+    if (vw > 0 && vh > 0) {
+        // Draw frame to sampling canvas
+        samplingCanvas.width = vw;
+        samplingCanvas.height = vh;
+        samplingCtx.drawImage(video, 0, 0, vw, vh);
+        
+        const imageData = samplingCtx.getImageData(0, 0, vw, vh);
+        
+        // Detect face
+        const face = detectFace(imageData, vw, vh);
+        
+        if (face) {
+            faceDetected = true;
+            faceLostCount = 0;
+            lastFaceBox = face;
+            
+            // Extract ROI colors
+            const roi = extractROI(imageData, face, vw, vh);
+            
+            if (roi) {
+                rgbBuffer.push({ r: roi.r, g: roi.g, b: roi.b });
+                timeBuffer.push(performance.now());
+                
+                if (rgbBuffer.length > BUFFER_SIZE) {
+                    rgbBuffer.shift();
+                    timeBuffer.shift();
+                }
+            }
+            
+            // Draw overlay on face
+            drawOverlay(face, vw, vh);
+            
+            // Update face status
+            document.getElementById('fDot').style.background = '#00ff88';
+            document.getElementById('fText').textContent = `Face detected ✓ (${face.w}×${face.h}px)`;
+            document.getElementById('fText').style.color = '#00ff88';
+            
+        } else {
+            faceLostCount++;
+            if (faceLostCount > FACE_LOST_THRESHOLD) {
+                faceDetected = false;
+                lastFaceBox = null;
+                document.getElementById('fDot').style.background = '#ffaa44';
+                document.getElementById('fText').textContent = 'Searching for face...';
+                document.getElementById('fText').style.color = '#ffaa44';
+                drawOverlay(null, vw, vh);
+            } else if (lastFaceBox) {
+                // Use last known face position
+                const roi = extractROI(imageData, lastFaceBox, vw, vh);
+                if (roi) {
+                    rgbBuffer.push({ r: roi.r, g: roi.g, b: roi.b });
+                    timeBuffer.push(performance.now());
+                    if (rgbBuffer.length > BUFFER_SIZE) {
+                        rgbBuffer.shift();
+                        timeBuffer.shift();
+                    }
+                }
+                drawOverlay(lastFaceBox, vw, vh);
+                document.getElementById('fDot').style.background = '#ffaa44';
+                document.getElementById('fText').textContent = 'Tracking (reduced confidence)';
+                document.getElementById('fText').style.color = '#ffaa44';
+            }
         }
-    }, 5000);
-});
+        
+        // Update status
+        document.getElementById('bufDisp').textContent = `${rgbBuffer.length}/${BUFFER_SIZE}`;
+        
+        const dot = document.getElementById('sDot');
+        const sText = document.getElementById('sText');
+        
+        // Loading progress
+        if (rgbBuffer.length < MIN_SAMPLES) {
+            document.getElementById('pFill').style.width = (rgbBuffer.length / MIN_SAMPLES * 100) + '%';
+            document.getElementById('olTitle').textContent = `Collecting samples: ${rgbBuffer.length}/${MIN_SAMPLES}`;
+            dot.classList.remove('active');
+            sText.textContent = 'Buffering...';
+            sText.style.color = '#ffaa44';
+        }
+        
+        // Process when we have enough data
+        if (rgbBuffer.length >= MIN_SAMPLES) {
+            // Hide overlay
+            document.getElementById('overlay').classList.add('hidden');
+            dot.classList.add('active');
+            sText.textContent = 'Monitoring';
+            sText.style.color = '#00ff88';
+            
+            // Run every ~5 frames to save CPU
+            frameCount++;
+            if (frameCount % 5 === 0) {
+                computeVitals();
+            }
+        }
+    }
+    
+    requestAnimationFrame(processFrame);
+}
+
+function computeVitals() {
+    const rgbData = rgbBuffer.slice();
+    const fs = actualFPS || 30;
+    
+    // ─── Three rPPG methods ───────────────────────────────────────
+    const posSig = posMethod(rgbData);
+    const chromSig = chromMethod(rgbData);
+    const greenSig = greenMethod(rgbData);
+    
+    // ─── Bandpass filter ──────────────────────────────────────────
+    const posFiltered = bandpassFilter(posSig, 0.7, 3.5, fs);
+    const chromFiltered = bandpassFilter(chromSig, 0.7, 3.5, fs);
+    const greenFiltered = bandpassFilter(greenSig, 0.7, 3.5, fs);
+    
+    // ─── Estimate HR from each ────────────────────────────────────
+    const hrPOS = estimateHR_FFT(posFiltered, fs);
+    const hrCHROM = estimateHR_FFT(chromFiltered, fs);
+    const hrGREEN = estimateHR_FFT(greenFiltered, fs);
+    
+    // ─── Weighted fusion ──────────────────────────────────────────
+    let validHRs = [];
+    let weights = [];
+    
+    if (hrPOS >= 42 && hrPOS <= 200) { validHRs.push(hrPOS); weights.push(0.50); }
+    if (hrCHROM >= 42 && hrCHROM <= 200) { validHRs.push(hrCHROM); weights.push(0.35); }
+    if (hrGREEN >= 42 && hrGREEN <= 200) { validHRs.push(hrGREEN); weights.push(0.15); }
+    
+    let hrFinal = 0;
+    if (validHRs.length > 0) {
+        let wSum = weights.reduce((a,b) => a+b, 0);
+        hrFinal = validHRs.reduce((acc, v, i) => acc + v * weights[i], 0) / wSum;
+    }
+    
+    // Smooth with history
+    if (hrFinal >= 42 && hrFinal <= 200) addToHistory(hrHistoryFinal, hrFinal, 20);
+    if (hrHistoryFinal.length > 0) hrFinal = medianOf(hrHistoryFinal);
+    
+    // ─── Other vitals ─────────────────────────────────────────────
+    const spo2 = estimateSpO2(rgbData);
+    const hrv = estimateHRV(posFiltered, fs);
+    const rr = estimateRR(posFiltered, fs);
+    if (rr >= 8 && rr <= 30) addToHistory(rrHistory, rr, 15);
+    const rrSmooth = rrHistory.length > 0 ? medianOf(rrHistory) : 15;
+    
+    const bp = estimateBP(hrFinal, hrv);
+    const stress = Math.max(0, Math.min(100, 100 - hrv));
+    const co = hrFinal > 0 ? (hrFinal * 70) / 1000 : 0;
+    const quality = signalQuality(posSig, posFiltered);
+    
+    // ─── Update UI ────────────────────────────────────────────────
+    document.getElementById('vHR').textContent = hrFinal > 0 ? Math.round(hrFinal) : '--';
+    document.getElementById('vSPO2').textContent = spo2 > 0 ? spo2.toFixed(1) : '--';
+    document.getElementById('vBP').textContent = hrFinal > 0 ? `${bp.sys}/${bp.dia}` : '--/--';
+    document.getElementById('vRR').textContent = rrSmooth > 0 ? Math.round(rrSmooth) : '--';
+    document.getElementById('vHRV').textContent = hrv > 0 ? Math.round(hrv) : '--';
+    document.getElementById('vST').textContent = hrFinal > 0 ? Math.round(stress) : '--';
+    document.getElementById('vCO').textContent = co > 0 ? co.toFixed(1) : '--';
+    document.getElementById('vQ').textContent = Math.round(quality);
+    
+    document.getElementById('hrP').textContent = hrPOS > 0 ? Math.round(hrPOS) : '--';
+    document.getElementById('hrC').textContent = hrCHROM > 0 ? Math.round(hrCHROM) : '--';
+    document.getElementById('hrG').textContent = hrGREEN > 0 ? Math.round(hrGREEN) : '--';
+    
+    // ─── Update charts ────────────────────────────────────────────
+    sigPOS = posFiltered.slice(-200);
+    sigCHROM = chromFiltered.slice(-200);
+    sigGREEN = greenFiltered.slice(-200);
+    
+    drawWaveform('miniSig', sigPOS, '#00ff88');
+    drawWaveform('cPOS', sigPOS, '#ff6666');
+    drawWaveform('cCHROM', sigCHROM, '#66aaff');
+    drawWaveform('cGREEN', sigGREEN, '#66ff88');
+}
 </script>
 </body>
 </html>
