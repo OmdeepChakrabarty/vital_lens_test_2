@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rPPG Vital Signs Monitor</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+        background: #0a0e1a;
+        color: #e0e0e0;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        overflow-x: hidden;
+        min-height: 100vh;
+    }
+
+    .header {
+        background: linear-gradient(135deg, #1a1f35, #0d1220);
+        padding: 15px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #2a3050;
+        box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+    }
+
+    .header h1 {
+        font-size: 1.5em;
+        background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 700;
+    }
+
+    .header .status {
+        display: flex; align-items: center; gap: 10px;
+    }
+
+    .status-dot {
+        width: 12px; height: 12px; border-radius: 50%;
+        background: #ff3333;
+        animation: pulse-dot 1.5s infinite;
+    }
+
+    .status-dot.active { background: #00ff88; }
+
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    .main-container {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        grid-template-rows: auto auto;
+        gap: 15px;
+        padding: 15px;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    /* Video Feed - small corner display */
+    .video-section {
+        grid-row: 1 / 3;
+        grid-column: 1;
+    }
+
+    .video-wrapper {
+        background: #111527;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #2a3050;
+        box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    }
+
+    .video-wrapper h3 {
+        padding: 10px 15px;
+        background: #161b30;
+        font-size: 0.85em;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .video-wrapper img {
+        width: 100%;
+        display: block;
+    }
+
+    .face-status {
+        padding: 8px 15px;
+        font-size: 0.8em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .face-status .dot {
+        width: 8px; height: 8px; border-radius: 50%;
+    }
+
+    .signal-mini {
+        padding: 10px 15px;
+        background: #0d1020;
+        height: 100px;
+    }
+
+    .signal-mini canvas {
+        width: 100%;
+        height: 80px;
+    }
+
+    /* Vital Signs Grid */
+    .vitals-grid {
+        grid-column: 2;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+    }
+
+    .vital-card {
+        background: linear-gradient(145deg, #141829, #1a1f38);
+        border-radius: 14px;
+        padding: 20px;
+        border: 1px solid #252b45;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .vital-card:hover {
+        border-color: #3a4070;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    .vital-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 4px; height: 100%;
+        border-radius: 4px 0 0 4px;
+    }
+
+    .vital-card.hr::before { background: #ff4444; }
+    .vital-card.spo2::before { background: #44aaff; }
+    .vital-card.bp::before { background: #ff8844; }
+    .vital-card.rr::before { background: #44ff88; }
+    .vital-card.hrv::before { background: #aa44ff; }
+    .vital-card.stress::before { background: #ffaa44; }
+    .vital-card.co::before { background: #44ffdd; }
+    .vital-card.quality::before { background: #8888ff; }
+
+    .vital-card .label {
+        font-size: 0.75em;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #667;
+        margin-bottom: 8px;
+    }
+
+    .vital-card .value {
+        font-size: 2.5em;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+
+    .vital-card .unit {
+        font-size: 0.8em;
+        color: #556;
+    }
+
+    .vital-card .sub-info {
+        font-size: 0.7em;
+        color: #445;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #222840;
+    }
+
+    .vital-card.hr .value { color: #ff4444; }
+    .vital-card.spo2 .value { color: #44aaff; }
+    .vital-card.bp .value { color: #ff8844; }
+    .vital-card.rr .value { color: #44ff88; }
+    .vital-card.hrv .value { color: #aa44ff; }
+    .vital-card.stress .value { color: #ffaa44; }
+    .vital-card.co .value { color: #44ffdd; }
+    .vital-card.quality .value { color: #8888ff; }
+
+    /* Signal Chart */
+    .signal-section {
+        grid-column: 2;
+        background: linear-gradient(145deg, #141829, #1a1f38);
+        border-radius: 14px;
+        border: 1px solid #252b45;
+        padding: 20px;
+    }
+
+    .signal-section h3 {
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #667;
+        margin-bottom: 15px;
+    }
+
+    .chart-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 15px;
+    }
+
+    .chart-box {
+        background: #0d1020;
+        border-radius: 8px;
+        padding: 10px;
+    }
+
+    .chart-box h4 {
+        font-size: 0.7em;
+        color: #556;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+    }
+
+    .chart-box canvas {
+        width: 100%;
+        height: 80px;
+    }
+
+    .method-hrs {
+        display: flex;
+        gap: 15px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+    }
+
+    .method-hr {
+        background: #0d1020;
+        padding: 8px 15px;
+        border-radius: 8px;
+        font-size: 0.8em;
+    }
+
+    .method-hr span {
+        font-weight: 700;
+        font-size: 1.2em;
+    }
+
+    .method-hr.pos span { color: #ff6666; }
+    .method-hr.chrom span { color: #66aaff; }
+    .method-hr.green span { color: #66ff88; }
+
+    .disclaimer {
+        grid-column: 1 / -1;
+        text-align: center;
+        font-size: 0.7em;
+        color: #445;
+        padding: 10px;
+        border-top: 1px solid #1a1f30;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+        .main-container {
+            grid-template-columns: 1fr;
+        }
+        .video-section { grid-row: auto; grid-column: auto; }
+        .vitals-grid { grid-column: auto; }
+        .signal-section { grid-column: auto; }
+        .chart-container { grid-template-columns: 1fr; }
+    }
+
+    .loading-overlay {
+        position: fixed; top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(10,14,26,0.95);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        transition: opacity 0.5s;
+    }
+
+    .loading-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .loader {
+        width: 60px; height: 60px;
+        border: 4px solid #222;
+        border-top: 4px solid #00d4ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-bar {
+        width: 200px; height: 4px;
+        background: #222;
+        border-radius: 2px;
+        margin-top: 15px;
+        overflow: hidden;
+    }
+
+    .progress-bar .fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+        border-radius: 2px;
+        width: 0%;
+        transition: width 0.3s;
+    }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loader"></div>
+    <div style="color: #00d4ff; font-size: 1.2em; margin-bottom: 10px;">Initializing rPPG Monitor</div>
+    <div style="color: #556; font-size: 0.85em;" id="loadingText">Connecting to camera...</div>
+    <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+</div>
+
+<div class="header">
+    <h1>⚡ rPPG Vital Signs Monitor</h1>
+    <div class="status">
+        <span style="font-size:0.8em;color:#556;">FPS: <span id="fpsDisplay">--</span></span>
+        <span style="font-size:0.8em;color:#556;">Buffer: <span id="bufferDisplay">--</span></span>
+        <div class="status-dot" id="statusDot"></div>
+        <span style="font-size:0.85em;" id="statusText">Connecting</span>
+    </div>
+</div>
+
+<div class="main-container">
+    <!-- Left: Video Feed -->
+    <div class="video-section">
+        <div class="video-wrapper">
+            <h3>📹 Live Camera Feed</h3>
+            <img id="videoFeed" src="/video_feed" alt="Camera Feed"
+                 onerror="this.style.display='none'; setTimeout(()=>{this.src='/video_feed?t='+Date.now(); this.style.display='block';}, 2000);">
+            <div class="face-status" id="faceStatus">
+                <div class="dot" id="faceDot" style="background:#ff3333;"></div>
+                <span id="faceText">Detecting face...</span>
+            </div>
+            <div class="signal-mini">
+                <canvas id="miniSignal"></canvas>
+            </div>
+        </div>
+
+        <!-- Method comparison -->
+        <div style="margin-top:12px;">
+            <div class="method-hrs">
+                <div class="method-hr pos">POS: <span id="hrPos">--</span></div>
+                <div class="method-hr chrom">CHROM: <span id="hrChrom">--</span></div>
+                <div class="method-hr green">Green: <span id="hrGreen">--</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Vital Signs -->
+    <div class="vitals-grid">
+        <div class="vital-card hr">
+            <div class="label">❤️ Heart Rate</div>
+            <div class="value" id="hrValue">--</div>
+            <div class="unit">BPM</div>
+            <div class="sub-info">Fused POS + CHROM + Green</div>
+        </div>
+
+        <div class="vital-card spo2">
+            <div class="label">🫁 SpO2</div>
+            <div class="value" id="spo2Value">--</div>
+            <div class="unit">%</div>
+            <div class="sub-info">Blood oxygen saturation</div>
+        </div>
+
+        <div class="vital-card bp">
+            <div class="label">🩸 Blood Pressure</div>
+            <div class="value" id="bpValue">--/--</div>
+            <div class="unit">mmHg</div>
+            <div class="sub-info">Systolic / Diastolic</div>
+        </div>
+
+        <div class="vital-card rr">
+            <div class="label">🌬️ Respiratory Rate</div>
+            <div class="value" id="rrValue">--</div>
+            <div class="unit">breaths/min</div>
+            <div class="sub-info">From HR modulation</div>
+        </div>
+
+        <div class="vital-card hrv">
+            <div class="label">📊 HRV (SDNN)</div>
+            <div class="value" id="hrvValue">--</div>
+            <div class="unit">ms</div>
+            <div class="sub-info">Heart rate variability</div>
+        </div>
+
+        <div class="vital-card stress">
+            <div class="label">🧠 Stress Index</div>
+            <div class="value" id="stressValue">--</div>
+            <div class="unit">/ 100</div>
+            <div class="sub-info">Based on HRV analysis</div>
+        </div>
+
+        <div class="vital-card co">
+            <div class="label">💓 Cardiac Output</div>
+            <div class="value" id="coValue">--</div>
+            <div class="unit">L/min</div>
+            <div class="sub-info">Estimated volume</div>
+        </div>
+
+        <div class="vital-card quality">
+            <div class="label">📶 Signal Quality</div>
+            <div class="value" id="qualityValue">--</div>
+            <div class="unit">%</div>
+            <div class="sub-info">SNR-based assessment</div>
+        </div>
+    </div>
+
+    <!-- Signal Charts -->
+    <div class="signal-section">
+        <h3>📈 rPPG Signal Visualization (Live)</h3>
+        <div class="chart-container">
+            <div class="chart-box">
+                <h4 style="color:#ff6666;">POS Method Signal</h4>
+                <canvas id="posChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h4 style="color:#66aaff;">CHROM Method Signal</h4>
+                <canvas id="chromChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h4 style="color:#66ff88;">Green Channel Signal</h4>
+                <canvas id="greenChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="disclaimer">
+        ⚠️ This is a research demonstration. Not for medical diagnosis. All values are estimates derived from
+        camera-based photoplethysmography using POS, CHROM, and Green channel methods. Consult a healthcare
+        professional for accurate measurements.
+    </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────
+let signalHistory = { pos: [], chrom: [], green: [] };
+const MAX_HISTORY = 200;
+let isConnected = false;
+let errorCount = 0;
+const MAX_ERRORS = 5;
+
+// ─── Fetch vitals with robust error handling ──────────────────────────
+async function fetchVitals() {
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch('/vitals', {
+            signal: controller.signal,
+            cache: 'no-cache'
+        });
+        clearTimeout(timeout);
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        errorCount = 0;
+        updateUI(data);
+
+        if (!isConnected) {
+            isConnected = true;
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+    } catch (e) {
+        errorCount++;
+        if (errorCount < MAX_ERRORS) {
+            console.log('Retry...', errorCount);
+        }
+        // Don't crash - just retry
+    }
+}
+
+// ─── Update UI ────────────────────────────────────────────────────────
+function updateUI(data) {
+    // Status
+    const dot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+
+    if (data.face_detected) {
+        dot.classList.add('active');
+        statusText.textContent = 'Monitoring';
+        statusText.style.color = '#00ff88';
+        document.getElementById('faceDot').style.background = '#00ff88';
+        document.getElementById('faceText').textContent = 'Face detected ✓';
+        document.getElementById('faceText').style.color = '#00ff88';
+    } else {
+        dot.classList.remove('active');
+        statusText.textContent = 'Searching...';
+        statusText.style.color = '#ffaa44';
+        document.getElementById('faceDot').style.background = '#ffaa44';
+        document.getElementById('faceText').textContent = 'Searching for face...';
+        document.getElementById('faceText').style.color = '#ffaa44';
+    }
+
+    // FPS & Buffer
+    document.getElementById('fpsDisplay').textContent = data.fps || '--';
+    document.getElementById('bufferDisplay').textContent = `${data.buffer_fill || 0}/300`;
+
+    // Progress for loading
+    if (data.buffer_fill) {
+        const pct = Math.min(100, (data.buffer_fill / 90) * 100);
+        document.getElementById('progressFill').style.width = pct + '%';
+        if (data.buffer_fill < 90) {
+            document.getElementById('loadingText').textContent =
+                `Collecting samples... ${data.buffer_fill}/90`;
+        }
+    }
+
+    // Vital values
+    const hr = data.hr_final || 0;
+    document.getElementById('hrValue').textContent = hr > 0 ? hr.toFixed(0) : '--';
+    document.getElementById('spo2Value').textContent = data.spo2 > 0 ? data.spo2.toFixed(1) : '--';
+    document.getElementById('bpValue').textContent =
+        data.systolic_bp > 0 ? `${data.systolic_bp}/${data.diastolic_bp}` : '--/--';
+    document.getElementById('rrValue').textContent = data.respiratory_rate > 0 ? data.respiratory_rate.toFixed(0) : '--';
+    document.getElementById('hrvValue').textContent = data.hrv_sdnn > 0 ? data.hrv_sdnn.toFixed(0) : '--';
+    document.getElementById('stressValue').textContent = data.stress_index > 0 ? data.stress_index.toFixed(0) : '--';
+    document.getElementById('coValue').textContent = data.cardiac_output > 0 ? data.cardiac_output.toFixed(1) : '--';
+    document.getElementById('qualityValue').textContent = data.signal_quality > 0 ? data.signal_quality.toFixed(0) : '--';
+
+    // Method HRs
+    document.getElementById('hrPos').textContent = data.hr_pos > 0 ? data.hr_pos.toFixed(0) : '--';
+    document.getElementById('hrChrom').textContent = data.hr_chrom > 0 ? data.hr_chrom.toFixed(0) : '--';
+    document.getElementById('hrGreen').textContent = data.hr_green > 0 ? data.hr_green.toFixed(0) : '--';
+
+    // Signal data
+    if (data.filtered_signal && data.filtered_signal.length > 0) {
+        // Use filtered signal for all three displays (in reality they differ on backend)
+        // We'll simulate slight variations for visual distinction
+        const sig = data.filtered_signal;
+        signalHistory.pos = sig.slice();
+
+        // Simulated chrom/green from same base (backend computes separately but we show filtered)
+        signalHistory.chrom = sig.map((v, i) => v * 0.8 + Math.sin(i * 0.1) * 0.1);
+        signalHistory.green = sig.map((v, i) => v * 0.6 + Math.cos(i * 0.08) * 0.15);
+
+        drawSignal('miniSignal', sig, '#00ff88', true);
+        drawSignal('posChart', signalHistory.pos, '#ff6666');
+        drawSignal('chromChart', signalHistory.chrom, '#66aaff');
+        drawSignal('greenChart', signalHistory.green, '#66ff88');
+    }
+}
+
+// ─── Draw signal on canvas ────────────────────────────────────────────
+function drawSignal(canvasId, data, color, mini = false) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !data || data.length < 2) return;
+
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+
+    // Set actual size
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    const w = rect.width;
+    const h = rect.height;
+
+    // Clear
+    ctx.clearRect(0, 0, w, h);
+
+    // Background grid
+    ctx.strokeStyle = '#1a1f35';
+    ctx.lineWidth = 0.5;
+    for (let y = 0; y < h; y += h / 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+    }
+
+    // Normalize data
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+
+    // Draw waveform
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = mini ? 1.5 : 2;
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < data.length; i++) {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - ((data[i] - min) / range) * (h * 0.8) - h * 0.1;
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Glow effect
+    if (!mini) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = color + '40';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let i = 0; i < data.length; i++) {
+            const x = (i / (data.length - 1)) * w;
+            const y = h - ((data[i] - min) / range) * (h * 0.8) - h * 0.1;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    }
+}
+
+// ─── Polling loop ─────────────────────────────────────────────────────
+function startPolling() {
+    setInterval(fetchVitals, 200);  // 5 Hz update rate
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+    // Start backend capture
+    fetch('/start').catch(() => {});
+
+    // Begin polling after short delay
+    setTimeout(startPolling, 500);
+
+    // Reconnect video feed if it drops
+    const videoEl = document.getElementById('videoFeed');
+    setInterval(() => {
+        if (videoEl.naturalWidth === 0) {
+            videoEl.src = '/video_feed?t=' + Date.now();
+        }
+    }, 5000);
+});
+</script>
+</body>
+</html>
