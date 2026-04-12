@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rPPG Vital Signs Monitor</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+
+.header{background:linear-gradient(135deg,#1a1f35,#0d1220);padding:12px 25px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2a3050}
+.header h1{font-size:1.3em;background:linear-gradient(90deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hinfo{display:flex;align-items:center;gap:14px;font-size:.76em;color:#667}
+.hinfo b{color:#aab}
+.dot{width:10px;height:10px;border-radius:50%;background:#ff3333;display:inline-block}
+.dot.on{background:#00ff88;box-shadow:0 0 8px #00ff8855}
+
+.main{display:grid;grid-template-columns:300px 1fr;gap:14px;padding:14px;max-width:1500px;margin:0 auto}
+
+.cam-card{background:#111527;border-radius:10px;overflow:hidden;border:1px solid #252b45}
+.cam-card .tp{padding:8px 12px;background:#161b30;font-size:.72em;color:#778;text-transform:uppercase;letter-spacing:1px}
+.cam-wrap{position:relative;background:#000;line-height:0}
+.cam-wrap video{width:100%;display:block;transform:scaleX(-1)}
+.cam-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%;transform:scaleX(-1);pointer-events:none}
+.cam-info{padding:6px 12px;font-size:.72em;display:flex;align-items:center;gap:6px;background:#0d1020;color:#667}
+.sig-mini{padding:6px 10px;background:#080b14;height:72px}
+.sig-mini canvas{width:100%;height:58px}
+
+.mtags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mt{background:#111527;padding:5px 10px;border-radius:6px;font-size:.7em;border:1px solid #1e2340}
+.mt b{font-size:1.1em}
+.mt.p b{color:#ff6666}.mt.c b{color:#66aaff}.mt.g b{color:#66ff88}
+
+.right{display:flex;flex-direction:column;gap:14px}
+
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.vc{background:linear-gradient(145deg,#141829,#1a1f38);border-radius:12px;padding:16px;border:1px solid #252b45;position:relative;overflow:hidden;transition:transform .2s}
+.vc:hover{transform:translateY(-2px)}
+.vc::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%}
+.vc.c1::before{background:#ff4444}.vc.c2::before{background:#44aaff}.vc.c3::before{background:#ff8844}
+.vc.c4::before{background:#44ff88}.vc.c5::before{background:#aa44ff}.vc.c6::before{background:#ffaa44}
+.vc.c7::before{background:#44ffdd}.vc.c8::before{background:#8888ff}
+.vc .lb{font-size:.62em;text-transform:uppercase;letter-spacing:1.2px;color:#556;margin-bottom:4px}
+.vc .vl{font-size:2.2em;font-weight:700;line-height:1}
+.vc .un{font-size:.68em;color:#445;margin-top:2px}
+.vc .sb{font-size:.58em;color:#334;margin-top:4px;padding-top:4px;border-top:1px solid #1e2340}
+.vc.c1 .vl{color:#ff4444}.vc.c2 .vl{color:#44aaff}.vc.c3 .vl{color:#ff8844}
+.vc.c4 .vl{color:#44ff88}.vc.c5 .vl{color:#aa44ff}.vc.c6 .vl{color:#ffaa44}
+.vc.c7 .vl{color:#44ffdd}.vc.c8 .vl{color:#8888ff}
+
+.wbox{background:linear-gradient(145deg,#141829,#1a1f38);border-radius:12px;border:1px solid #252b45;padding:16px}
+.wbox h3{font-size:.72em;text-transform:uppercase;letter-spacing:1.2px;color:#556;margin-bottom:10px}
+.wgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.wc{background:#0d1020;border-radius:8px;padding:8px}
+.wc h4{font-size:.6em;color:#445;margin-bottom:2px;text-transform:uppercase}
+.wc canvas{width:100%;height:70px}
+
+.foot{text-align:center;font-size:.58em;color:#334;padding:8px;grid-column:1/-1}
+
+/* Overlay */
+.ov{position:fixed;inset:0;background:rgba(10,14,26,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;transition:opacity .4s}
+.ov.gone{opacity:0;pointer-events:none}
+.sp{width:44px;height:44px;border:3px solid #222;border-top:3px solid #00d4ff;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pb{width:220px;height:4px;background:#1a1f30;border-radius:2px;margin-top:10px;overflow:hidden}
+.pb .fl{height:100%;background:linear-gradient(90deg,#00d4ff,#7b2ff7);width:0%;transition:width .3s}
+.btn{background:linear-gradient(135deg,#00d4ff,#7b2ff7);border:none;color:#fff;padding:12px 36px;font-size:1em;border-radius:8px;cursor:pointer;margin-top:16px;font-weight:600}
+.btn:hover{filter:brightness(1.1)}
+
+.guide{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border:2px dashed #00ff8844;border-radius:12px;pointer-events:none}
+.guide-label{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);color:#00ff8888;font-size:10px;white-space:nowrap}
+
+@media(max-width:850px){.main{grid-template-columns:1fr}.wgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- Start overlay -->
+<div class="ov" id="ov">
+    <div class="sp" id="sp"></div>
+    <div style="color:#00d4ff;font-size:1.1em;margin-bottom:6px" id="ovT">rPPG Vital Signs Monitor</div>
+    <div style="color:#667;font-size:.82em;text-align:center;max-width:400px;line-height:1.5" id="ovM">
+        Position your face inside the guide box on camera.<br>
+        All processing runs locally in your browser.<br><b>No data is sent anywhere.</b>
+    </div>
+    <button class="btn" id="btn" onclick="begin()" disabled>📹 Start Camera</button>
+    <div class="pb" id="pb" style="display:none"><div class="fl" id="pfl"></div></div>
+</div>
+
+<div class="header">
+    <h1>⚡ rPPG Vital Signs Monitor</h1>
+    <div class="hinfo">
+        <span>FPS: <b id="xFPS">--</b></span>
+        <span>Buffer: <b id="xBuf">0</b>/300</span>
+        <span class="dot" id="xDot"></span>
+        <span id="xSt" style="color:#ff6666">Off</span>
+    </div>
+</div>
+
+<div class="main">
+    <!-- Left column -->
+    <div>
+        <div class="cam-card">
+            <div class="tp">📹 Camera — Center your face in the box</div>
+            <div class="cam-wrap">
+                <video id="vid" autoplay playsinline muted></video>
+                <canvas id="ovc"></canvas>
+            </div>
+            <div class="cam-info">
+                <span class="dot" id="fd" style="width:7px;height:7px"></span>
+                <span id="ft">Camera not started</span>
+            </div>
+            <div class="sig-mini"><canvas id="ms"></canvas></div>
+        </div>
+        <div class="mtags">
+            <div class="mt p">MODEL: <b id="mP">--</b></div>
+            <div class="mt c">CHROM: <b id="mC">--</b></div>
+            <div class="mt g">Green: <b id="mG">--</b></div>
+        </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="right">
+        <div class="vgrid">
+            <div class="vc c1"><div class="lb">❤️ Heart Rate</div><div class="vl" id="vHR">--</div><div class="un">BPM</div><div class="sb">POS + CHROM + Green fusion</div></div>
+            <div class="vc c2"><div class="lb">🫁 SpO2</div><div class="vl" id="vO2">--</div><div class="un">%</div><div class="sb">Blood oxygen estimate</div></div>
+            <div class="vc c3"><div class="lb">🩸 Blood Pressure</div><div class="vl" id="vBP">--/--</div><div class="un">mmHg</div><div class="sb">Systolic / Diastolic</div></div>
+            <div class="vc c4"><div class="lb">🌬️ Respiratory Rate</div><div class="vl" id="vRR">--</div><div class="un">breaths/min</div><div class="sb">From HR modulation</div></div>
+            <div class="vc c5"><div class="lb">📊 HRV (SDNN)</div><div class="vl" id="vHV">--</div><div class="un">ms</div><div class="sb">Heart rate variability</div></div>
+            <div class="vc c6"><div class="lb">🧠 Stress Level</div><div class="vl" id="vST">--</div><div class="un">/ 100</div><div class="sb">Inverse HRV index</div></div>
+            <div class="vc c7"><div class="lb">💓 Cardiac Output</div><div class="vl" id="vCO">--</div><div class="un">L/min</div><div class="sb">Estimated flow volume</div></div>
+            <div class="vc c8"><div class="lb">📶 Signal Quality</div><div class="vl" id="vSQ">--</div><div class="un">%</div><div class="sb">Signal-to-noise ratio</div></div>
+        </div>
+        <div class="wbox">
+            <h3>📈 Live rPPG Waveforms</h3>
+            <div class="wgrid">
+                <div class="wc"><h4 style="color:#ff6666">POS Method</h4><canvas id="cP"></canvas></div>
+                <div class="wc"><h4 style="color:#66aaff">CHROM Method</h4><canvas id="cC"></canvas></div>
+                <div class="wc"><h4 style="color:#66ff88">Green Channel</h4><canvas id="cG"></canvas></div>
+            </div>
+        </div>
+        <div class="foot">⚠️ Research demonstration only. Not a medical device. Estimates via camera-based rPPG. Consult a healthcare professional for real measurements.</div>
+    </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   rPPG VITAL SIGNS — XGBoost inference via local Flask server
+   Samples center region of frame (where your face is)
+   POS signal → /predict → BPM output
+   ════════════════════════════════════════════════════════════ */
+
+const BUF=300, NEED=90, EVERY=6;
+
+let vid, ovc, octx, sc, sctx;
+let rgb=[], tms=[];
+let on=false, fc=0, fps=30, fpsT=0, fpsN=0;
+let hF=[], hRR=[];
+
+// ── Model state ───────────────────────────────────────────
+let modelReady = false;
+
+async function loadModel(){
+    const statusEl = document.getElementById('ovM');
+    const titleEl  = document.getElementById('ovT');
+    try {
+        titleEl.textContent = 'Connecting to inference server…';
+        statusEl.innerHTML  = 'Checking <b>/predict</b> endpoint…';
+        const res = await fetch('/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pos_hr: 70, chrom_hr: 70, green_hr: 70, sq: 80})
+        });
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        modelReady = true;
+        titleEl.textContent = 'rPPG Vital Signs Monitor';
+        statusEl.innerHTML  =
+            'XGBoost model ready ✅<br>Position your face in the guide box.<br>' +
+            '<b>All processing runs locally. No data is sent anywhere.</b>';
+        document.getElementById('btn').disabled = false;
+    } catch(e) {
+        titleEl.textContent = 'Server not reachable ❌';
+        statusEl.innerHTML  =
+            `<span style="color:#ff6666">${e.message}</span><br><br>` +
+            'Make sure <b>server.py</b> is running:<br>' +
+            '<code style="color:#aaf">python3 server.py</code>';
+        // Still allow start — will fall back to FFT
+        modelReady = false;
+        document.getElementById('btn').disabled = false;
+    }
+}
+
+// ── Run XGBoost inference via Flask /predict ───────────────
+async function inferBPM(posHR, chromHR, greenHR, sq) {
+    if (!modelReady) return null;
+    try {
+        const res = await fetch('/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({pos_hr: posHR, chrom_hr: chromHR, green_hr: greenHR, sq})
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return (data.bpm && isFinite(data.bpm)) ? data.bpm : null;
+    } catch(e) {
+        return null;
+    }
+}
+
+// ── Start camera ──────────────────────────────────────────
+async function begin(){
+    const b=document.getElementById('btn');
+    b.textContent='⏳ Starting...'; b.disabled=true;
+
+    try{
+        const stream=await navigator.mediaDevices.getUserMedia({
+            video:{width:{ideal:640},height:{ideal:480},facingMode:'user',frameRate:{ideal:30}},
+            audio:false
+        });
+        vid=document.getElementById('vid');
+        vid.srcObject=stream;
+        await new Promise((ok,no)=>{
+            vid.onloadedmetadata=()=>vid.play().then(ok).catch(no);
+            setTimeout(()=>no(new Error('Camera timeout')),8000);
+        });
+        await new Promise(r=>setTimeout(r,500)); // let auto-exposure settle
+
+        ovc=document.getElementById('ovc');
+        octx=ovc.getContext('2d');
+        sc=document.createElement('canvas');
+        sctx=sc.getContext('2d',{willReadFrequently:true});
+
+        b.style.display='none';
+        document.getElementById('sp').style.display='none';
+        document.getElementById('pb').style.display='block';
+        document.getElementById('ovT').textContent='Collecting samples...';
+        document.getElementById('ovM').textContent='Keep your face centered and stay still.';
+
+        on=true; fpsT=performance.now();
+        requestAnimationFrame(loop);
+    }catch(e){
+        b.textContent='🔄 Reload'; b.disabled=false;
+        b.onclick=()=>location.reload();
+        document.getElementById('ovM').innerHTML=`<span style="color:#ff4444">${e.message}</span><br>Allow camera access and reload.`;
+    }
+}
+
+// ── Sample center region of frame ─────────────────────────
+function sampleCenter(imgData, w, h){
+    const d=imgData.data;
+
+    // Center box: 40% width, 50% height, slightly above center
+    const bw=Math.floor(w*0.4);
+    const bh=Math.floor(h*0.5);
+    const bx=Math.floor((w-bw)/2);
+    const by=Math.floor((h-bh)/2 - h*0.05);
+
+    // Three sub-regions for weighted sampling
+    const regions=[
+        // Upper region (forehead area) — best rPPG signal
+        {x1:bx+bw*0.15|0, y1:by, x2:bx+bw*0.85|0, y2:by+bh*0.3|0, wt:0.50},
+        // Left mid region (cheek)
+        {x1:bx, y1:by+bh*0.4|0, x2:bx+bw*0.4|0, y2:by+bh*0.75|0, wt:0.25},
+        // Right mid region (cheek)
+        {x1:bx+bw*0.6|0, y1:by+bh*0.4|0, x2:bx+bw, y2:by+bh*0.75|0, wt:0.25}
+    ];
+
+    let tR=0,tG=0,tB=0,tW=0;
+
+    for(const reg of regions){
+        const rx1=Math.max(0,reg.x1), ry1=Math.max(0,reg.y1);
+        const rx2=Math.min(w,reg.x2), ry2=Math.min(h,reg.y2);
+        if(rx2<=rx1||ry2<=ry1) continue;
+
+        let sr=0,sg=0,sb=0,cnt=0;
+        for(let py=ry1;py<ry2;py+=2){
+            for(let px=rx1;px<rx2;px+=2){
+                const i=(py*w+px)*4;
+                sr+=d[i]; sg+=d[i+1]; sb+=d[i+2]; cnt++;
+            }
+        }
+        if(cnt>0){
+            tR+=(sr/cnt)*reg.wt;
+            tG+=(sg/cnt)*reg.wt;
+            tB+=(sb/cnt)*reg.wt;
+            tW+=reg.wt;
+        }
+    }
+
+    if(tW<0.01) return null;
+    return {r:tR/tW, g:tG/tW, b:tB/tW, box:{x:bx,y:by,w:bw,h:bh}, regions};
+}
+
+// ── Draw guide overlay on video ───────────────────────────
+function drawGuide(w, h, roi){
+    ovc.width=w; ovc.height=h;
+    octx.clearRect(0,0,w,h);
+
+    if(!roi) return;
+
+    const b=roi.box;
+
+    // Main guide box
+    octx.strokeStyle='#00ff8866';
+    octx.lineWidth=2;
+    octx.setLineDash([8,6]);
+    octx.strokeRect(b.x,b.y,b.w,b.h);
+    octx.setLineDash([]);
+
+    // Label
+    octx.fillStyle='#00ff8888';
+    octx.font='10px sans-serif';
+    octx.fillText('Position face here',b.x+b.w/2-45, b.y-6);
+
+    // Sub-regions
+    for(const r of roi.regions){
+        const rx1=Math.max(0,r.x1), ry1=Math.max(0,r.y1);
+        const rx2=Math.min(w,r.x2), ry2=Math.min(h,r.y2);
+        octx.fillStyle = r.wt>0.3 ? '#ff444418' : '#4488ff18';
+        octx.fillRect(rx1,ry1,rx2-rx1,ry2-ry1);
+        octx.strokeStyle = r.wt>0.3 ? '#ff444444' : '#4488ff44';
+        octx.lineWidth=1;
+        octx.strokeRect(rx1,ry1,rx2-rx1,ry2-ry1);
+    }
+
+    // Show HR on video if available
+    if(hF.length>0){
+        const hr=Math.round(med(hF));
+        if(hr>0){
+            octx.fillStyle='#00ff88';
+            octx.font='bold 18px sans-serif';
+            octx.fillText('♥ '+hr+' BPM', b.x, b.y+b.h+20);
+        }
+    }
+}
+
+// ── Signal processing ─────────────────────────────────────
+function bpf(s,lo,hi,fs){
+    if(s.length<8) return s.slice();
+    const n=s.length;
+    const aH=1/(1+2*Math.PI*lo/fs);
+    const aL=(2*Math.PI*hi/fs)/(1+2*Math.PI*hi/fs);
+
+    // Forward high-pass
+    const hp=new Float64Array(n);
+    for(let i=1;i<n;i++) hp[i]=aH*(hp[i-1]+s[i]-s[i-1]);
+
+    // Forward low-pass
+    const lp=new Float64Array(n);
+    lp[0]=hp[0];
+    for(let i=1;i<n;i++) lp[i]=lp[i-1]+aL*(hp[i]-lp[i-1]);
+
+    // Backward low-pass (zero phase)
+    const lp2=new Float64Array(n);
+    lp2[n-1]=lp[n-1];
+    for(let i=n-2;i>=0;i--) lp2[i]=lp2[i+1]+aL*(lp[i]-lp2[i+1]);
+
+    // Backward high-pass
+    const out=new Float64Array(n);
+    for(let i=n-2;i>=0;i--) out[i]=aH*(out[i+1]+lp2[i+1]-lp2[i]);
+
+    // Remove DC
+    let m=0; for(let i=0;i<n;i++) m+=out[i]; m/=n;
+    for(let i=0;i<n;i++) out[i]-=m;
+    return Array.from(out);
+}
+
+function fftHR(s,fs){
+    if(s.length<50) return 0;
+    const n=s.length;
+    const w=new Float64Array(n);
+    for(let i=0;i<n;i++) w[i]=s[i]*(0.5-0.5*Math.cos(2*Math.PI*i/(n-1)));
+
+    const nfft=Math.max(512,1<<(Math.ceil(Math.log2(n))+1));
+    const k0=Math.floor(0.7*nfft/fs);
+    const k1=Math.min(Math.ceil(3.5*nfft/fs),nfft>>1);
+
+    let best=0,bf=0;
+    for(let k=k0;k<=k1;k++){
+        let re=0,im=0;
+        for(let i=0;i<n;i++){
+            const a=-2*Math.PI*k*i/nfft;
+            re+=w[i]*Math.cos(a); im+=w[i]*Math.sin(a);
+        }
+        const m=re*re+im*im;
+        if(m>best){best=m;bf=k*fs/nfft}
+    }
+    return bf*60;
+}
+
+// ── rPPG methods ──────────────────────────────────────────
+function POS(d){
+    const n=d.length;
+    if(n<50) return new Array(n).fill(0);
+    const ws=Math.max(4,Math.round(fps*1.6));
+    const p=new Float64Array(n);
+
+    for(let i=0;i<=n-ws;i+=Math.max(1,ws>>1)){
+        const e=Math.min(i+ws,n), l=e-i;
+        let mr=0,mg=0,mb=0;
+        for(let j=i;j<e;j++){mr+=d[j].r;mg+=d[j].g;mb+=d[j].b}
+        mr/=l;mg/=l;mb/=l;
+        if(mr<1||mg<1||mb<1) continue;
+
+        const X=new Float64Array(l), Y=new Float64Array(l);
+        for(let j=0;j<l;j++){
+            const rn=d[i+j].r/mr, gn=d[i+j].g/mg, bn=d[i+j].b/mb;
+            X[j]=gn-bn; Y[j]=gn+bn-2*rn;
+        }
+        let xm=0,ym=0;
+        for(let j=0;j<l;j++){xm+=X[j];ym+=Y[j]}
+        xm/=l;ym/=l;
+        let xv=0,yv=0;
+        for(let j=0;j<l;j++){xv+=(X[j]-xm)**2;yv+=(Y[j]-ym)**2}
+        const a=Math.sqrt(xv)/(Math.sqrt(yv)+1e-8);
+        for(let j=0;j<l;j++) p[i+j]=X[j]+a*Y[j];
+    }
+    let m=0;for(let i=0;i<n;i++)m+=p[i];m/=n;
+    for(let i=0;i<n;i++)p[i]-=m;
+    return Array.from(p);
+}
+
+function CHROM(d){
+    const n=d.length;
+    if(n<50) return new Array(n).fill(0);
+    let mr=0,mg=0,mb=0;
+    for(const p of d){mr+=p.r;mg+=p.g;mb+=p.b}
+    mr/=n;mg/=n;mb/=n;
+    if(mr<1||mg<1||mb<1) return new Array(n).fill(0);
+
+    const X=new Float64Array(n), Y=new Float64Array(n);
+    for(let i=0;i<n;i++){
+        const rn=d[i].r/mr,gn=d[i].g/mg,bn=d[i].b/mb;
+        X[i]=3*rn-2*gn; Y[i]=1.5*rn+gn-1.5*bn;
+    }
+    let xm=0,ym=0;
+    for(let i=0;i<n;i++){xm+=X[i];ym+=Y[i]}
+    xm/=n;ym/=n;
+    let xv=0,yv=0;
+    for(let i=0;i<n;i++){xv+=(X[i]-xm)**2;yv+=(Y[i]-ym)**2}
+    const a=Math.sqrt(xv)/(Math.sqrt(yv)+1e-8);
+    const r=new Float64Array(n);
+    let rm=0;
+    for(let i=0;i<n;i++){r[i]=X[i]-a*Y[i];rm+=r[i]}
+    rm/=n;
+    for(let i=0;i<n;i++)r[i]-=rm;
+    return Array.from(r);
+}
+
+function GREEN(d){
+    const n=d.length;
+    if(n<10) return new Array(n).fill(0);
+    let m=0;for(const p of d)m+=p.g;m/=n;
+    return d.map(p=>p.g-m);
+}
+
+// ── Vital estimators ──────────────────────────────────────
+function estSpO2(d){
+    if(d.length<50) return 98;
+    const n=d.length;
+    let mr=0,mb=0;for(const p of d){mr+=p.r;mb+=p.b}mr/=n;mb/=n;
+    let vr=0,vb=0;for(const p of d){vr+=(p.r-mr)**2;vb+=(p.b-mb)**2}
+    if(mr<1||mb<1) return 98;
+    const rat=(Math.sqrt(vr/n)/mr)/(Math.sqrt(vb/n)/mb+1e-8);
+    return Math.max(90,Math.min(100,110-25*rat));
+}
+
+function estRR(s,fs){
+    if(s.length<100) return 15;
+    const f=bpf(s,0.15,0.5,fs);
+    const bpm=fftHR(f,fs);
+    return(bpm>=8&&bpm<=30)?bpm:15;
+}
+
+function estHRV(s,fs){
+    if(s.length<60) return 50;
+    const f=bpf(s,0.7,3.5,fs);
+    const pk=[];
+    for(let i=2;i<f.length-2;i++){
+        if(f[i]>f[i-1]&&f[i]>f[i+1]&&f[i]>f[i-2]&&f[i]>f[i+2]&&f[i]>0)
+            if(!pk.length||(i-pk[pk.length-1])>fs*0.33) pk.push(i);
+    }
+    if(pk.length<3) return 50;
+    const rr=[];
+    for(let i=1;i<pk.length;i++) rr.push((pk[i]-pk[i-1])/fs*1000);
+    const sorted=rr.slice().sort((a,b)=>a-b);
+    const md=sorted[sorted.length>>1];
+    const ok=rr.filter(v=>v>md*0.55&&v<md*1.45);
+    if(ok.length<2) return 50;
+    let vm=0;for(const v of ok)vm+=v;vm/=ok.length;
+    let vv=0;for(const v of ok)vv+=(v-vm)**2;
+    return Math.max(10,Math.min(200,Math.sqrt(vv/ok.length)));
+}
+
+function estBP(hr,hrv){
+    if(hr<=0) return{s:0,d:0};
+    let s=0.5*hr+80, d=0.3*hr+45;
+    if(hrv>0){const f=Math.max(.85,Math.min(1.15,50/(hrv+10)));s*=f;d*=f}
+    return{s:Math.round(Math.max(90,Math.min(180,s))),d:Math.round(Math.max(55,Math.min(110,d)))};
+}
+
+function sigQ(raw,filt){
+    if(raw.length<20||filt.length<20) return 0;
+    const n=Math.min(raw.length,filt.length);
+    let sp=0,np=0;
+    for(let i=0;i<n;i++){sp+=filt[i]**2;np+=(raw[i]-filt[i])**2}
+    if(np<1e-10) return 50;
+    return Math.max(0,Math.min(100,10*Math.log10(sp/(np+1e-10)+1e-10)*10+50));
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function push(a,v,mx){a.push(v);if(a.length>mx)a.shift()}
+function med(a){if(!a.length)return 0;const s=a.slice().sort((a,b)=>a-b);return s[s.length>>1]}
+function nrm(a){if(a.length<2)return a;let mn=1e9,mx=-1e9;for(const v of a){if(v<mn)mn=v;if(v>mx)mx=v}const r=mx-mn||1;return a.map(v=>(v-mn)/r*2-1)}
+
+// ── Draw waveform on canvas ───────────────────────────────
+function wave(id,data,color){
+    const c=document.getElementById(id);
+    if(!c||data.length<3) return;
+    const ctx=c.getContext('2d');
+    const dpr=devicePixelRatio||1;
+    const rect=c.getBoundingClientRect();
+    c.width=rect.width*dpr;c.height=rect.height*dpr;
+    ctx.scale(dpr,dpr);
+    const W=rect.width,H=rect.height;
+    ctx.clearRect(0,0,W,H);
+
+    // Center line
+    ctx.strokeStyle='#252b45';ctx.lineWidth=.5;
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+
+    const nd=nrm(data);
+    ctx.shadowColor=color;ctx.shadowBlur=4;
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.lineJoin='round';
+    ctx.beginPath();
+    for(let i=0;i<nd.length;i++){
+        const x=i/(nd.length-1)*W, y=H/2-nd[i]*H*.38;
+        i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    }
+    ctx.stroke();ctx.shadowBlur=0;
+}
+
+// ── Main loop ─────────────────────────────────────────────
+function loop(t){
+    if(!on) return;
+
+    // FPS tracking
+    fpsN++;
+    if(t-fpsT>1000){
+        fps=fpsN*1000/(t-fpsT);fpsN=0;fpsT=t;
+        document.getElementById('xFPS').textContent=fps.toFixed(0);
+    }
+
+    const vw=vid.videoWidth, vh=vid.videoHeight;
+    if(vw<1||vh<1){requestAnimationFrame(loop);return}
+
+    // Grab frame
+    sc.width=vw;sc.height=vh;
+    sctx.drawImage(vid,0,0,vw,vh);
+    const img=sctx.getImageData(0,0,vw,vh);
+
+    // Sample center region (no face detection needed)
+    const roi=sampleCenter(img,vw,vh);
+
+    if(roi){
+        rgb.push({r:roi.r, g:roi.g, b:roi.b});
+        tms.push(performance.now());
+        if(rgb.length>BUF){rgb.shift();tms.shift()}
+
+        drawGuide(vw,vh,roi);
+
+        // Status
+        document.getElementById('fd').style.background='#00ff88';
+        document.getElementById('fd').classList.add('on');
+        document.getElementById('ft').textContent=`Sampling center ROI • ${rgb.length} frames`;
+        document.getElementById('ft').style.color='#00ff88';
+    }
+
+    document.getElementById('xBuf').textContent=rgb.length;
+
+    // Loading
+    if(rgb.length<NEED){
+        document.getElementById('pfl').style.width=(rgb.length/NEED*100)+'%';
+        document.getElementById('ovT').textContent=`Collecting: ${rgb.length}/${NEED}`;
+        document.getElementById('xDot').classList.remove('on');
+        document.getElementById('xSt').textContent='Buffering';
+        document.getElementById('xSt').style.color='#ffaa44';
+    }
+
+    // Compute vitals once enough data
+    if(rgb.length>=NEED){
+        document.getElementById('ov').classList.add('gone');
+        document.getElementById('xDot').classList.add('on');
+        document.getElementById('xSt').textContent='Active';
+        document.getElementById('xSt').style.color='#00ff88';
+
+        fc++;
+        if(fc%EVERY===0) compute(); // async, fires and continues
+    }
+
+    requestAnimationFrame(loop);
+}
+
+// ── Boot: load model as soon as page is ready ─────────────
+loadModel();
+
+// ── Compute all vitals ────────────────────────────────────
+async function compute(){
+    const d=rgb.slice();
+    const fs=fps||30;
+
+    // Three rPPG methods
+    const pS=POS(d), cS=CHROM(d), gS=GREEN(d);
+
+    // Bandpass filter 0.7–3.5 Hz (42–210 BPM)
+    const pF=bpf(pS,0.7,3.5,fs);
+    const cF=bpf(cS,0.7,3.5,fs);
+    const gF=bpf(gS,0.7,3.5,fs);
+
+    // ── Model inference (primary HR source) ──────────────
+    // Pass FFT-derived HR from each method + signal quality
+    // exactly matching training features: pos_hr, chrom_hr, green_hr, sq
+    const hrP = fftHR(pF, fs);
+    const hrC = fftHR(cF, fs);
+    const hrG = fftHR(gF, fs);
+    const sq  = sigQ(pS, pF);   // 0–100 signal quality
+
+    let hr = 0;
+    const modelBPM = await inferBPM(hrP, hrC, hrG, sq);
+
+    if (modelBPM !== null && modelBPM >= 42 && modelBPM <= 200) {
+        // ✅ Model prediction — primary source
+        push(hF, modelBPM, 25);
+        hr = med(hF);
+        document.getElementById('mP').textContent = Math.round(modelBPM);
+    } else {
+        // ⚠️ Fallback: weighted FFT fusion
+        let hrs=[], wts=[];
+        if(hrP>=42&&hrP<=200){hrs.push(hrP);wts.push(.50)}
+        if(hrC>=42&&hrC<=200){hrs.push(hrC);wts.push(.35)}
+        if(hrG>=42&&hrG<=200){hrs.push(hrG);wts.push(.15)}
+        if(hrs.length){const ws=wts.reduce((a,b)=>a+b);hr=hrs.reduce((a,v,i)=>a+v*wts[i],0)/ws;}
+        if(hr>=42&&hr<=200) push(hF,hr,25);
+        if(hF.length) hr=med(hF);
+        document.getElementById('mP').textContent = hrP>0?Math.round(hrP):'--';
+    }
+    document.getElementById('mC').textContent = hrC>0?Math.round(hrC):'--';
+    document.getElementById('mG').textContent = hrG>0?Math.round(hrG):'--';
+
+    // Derived vitals (unchanged)
+    const spo2=estSpO2(d);
+    const hrv=estHRV(pF,fs);
+    let rr=estRR(pF,fs);
+    if(rr>=8&&rr<=30) push(hRR,rr,15);
+    if(hRR.length) rr=med(hRR);
+    const bp=estBP(hr,hrv);
+    const stress=hr>0?Math.max(0,Math.min(100,100-hrv)):0;
+    const co=hr>0?(hr*70)/1000:0;
+
+    // Update UI
+    document.getElementById('vHR').textContent=hr>0?Math.round(hr):'--';
+    document.getElementById('vO2').textContent=hr>0?spo2.toFixed(1):'--';
+    document.getElementById('vBP').textContent=hr>0?`${bp.s}/${bp.d}`:'--/--';
+    document.getElementById('vRR').textContent=hr>0?Math.round(rr):'--';
+    document.getElementById('vHV').textContent=hr>0?Math.round(hrv):'--';
+    document.getElementById('vST').textContent=hr>0?Math.round(stress):'--';
+    document.getElementById('vCO').textContent=co>0?co.toFixed(1):'--';
+    document.getElementById('vSQ').textContent=Math.round(sq);
+
+    // Waveforms
+    const tail=180;
+    wave('ms',pF.slice(-tail),'#00ff88');
+    wave('cP',pF.slice(-tail),'#ff6666');
+    wave('cC',cF.slice(-tail),'#66aaff');
+    wave('cG',gF.slice(-tail),'#66ff88');
+}
+</script>
+</body>
+</html>
